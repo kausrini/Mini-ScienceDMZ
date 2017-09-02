@@ -1,0 +1,3 @@
+# Enter one user per line. These will be added to guacamole database and provided connection access.
+ssw
+kausrini

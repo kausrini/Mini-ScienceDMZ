@@ -13,9 +13,10 @@ MAINTAINER Kaushik Srinivasan <kausrini@iu.edu>
 
 # Setting Environment variables
 ENV GUACAMOLE_HOME /etc/guacamole
+ENV TOMCAT_VERSION 8.5.20
+ENV GUACAMOLE_VERSION 0.9.13
+ENV MYSQL_CONNECTOR_VERSION 5.1.44	
 
-# Need to install Apache Tomcat
-# Have decided to go with Apache Tomcat 8
 
 # Java Development Kit dependency installed
 RUN apt-get update && apt-get install -y \
@@ -26,8 +27,6 @@ RUN apt-get update && apt-get install -y \
 # Create new group and user to run tomcat
 RUN groupadd tomcat \
 	&&  useradd -s /bin/false -g tomcat -d /opt/tomcat tomcat
-
-ENV TOMCAT_VERSION 8.5.20
 
 # Downloading Apache Tomcat 8 from official site
 RUN cd /tmp \
@@ -62,11 +61,7 @@ RUN apt-get update && apt-get install -y \
 	libssl-dev \
 	make \
 	perl \
-#	autoconf \
 	&& rm -rf /var/lib/apt/lists/*
-
-
-ENV GUACAMOLE_VERSION 0.9.13
 
 
 # Downloading and Installing Guacamole Server
@@ -78,26 +73,6 @@ RUN     curl -O http://apache.mirrors.tds.net/incubator/guacamole/$GUACAMOLE_VER
         && make \
         && make install \
         && ldconfig
-
-# This is temp code for unreleased guac version. From git
-#COPY guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz /home/
-
-#Dele this too later not needed
-#RUN apt-get update && apt-get install -y \
-#	automake \
-#	libtool
-
-#RUN tar -xzf /home/guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz -C /home \
-#        && rm guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz \
-#        && cd /home/guacamole-server-$GUACAMOLE_VERSION-incubating/ \
-#	&& autoreconf -fi \
-#	&& ./configure --with-init-dir=/etc/init.d \
-#        && make \
-#        && make install \
-#        && ldconfig
-
-
-#COPY guacamole-$GUACAMOLE_VERSION-incubating.war /opt/tomcat/webapps/guacamole.war
 
 # Downloading Guacamole-Client war file  and moving to tomcat webapp folder
 RUN  curl -O http://apache.mirrors.tds.net/incubator/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-$GUACAMOLE_VERSION-incubating.war \
@@ -112,16 +87,11 @@ RUN  mkdir /etc/guacamole \
 COPY guacamole.properties /etc/guacamole/
 
 	
-# ARM Linux stuff	
+# Guacamole configurations for ARM architecture
 RUN  mkdir /usr/lib/arm-linux-gnueabihf/freerdp/ \
         && ln -s /home/guacamole-server-$GUACAMOLE_VERSION-incubating/src/protocols/rdp/.libs/guacsnd-client.so  /usr/lib/arm-linux-gnueabihf/freerdp/guacsnd-client.so \
         && ln -s /home/guacamole-server-$GUACAMOLE_VERSION-incubating/src/protocols/rdp/.libs/guacdr-client.so /usr/lib/arm-linux-gnueabihf/freerdp/guacdr-client.so \
         && chown tomcat:tomcat /etc/guacamole/guacamole.properties
-
-
-#Remove this finally. Docker containers dont need unnecessary stuff
-RUN apt-get update && apt-get install -y nano 
-
 
 
 #Shell script (Which needs to run initial functions)  copied to the container
@@ -129,6 +99,9 @@ COPY setup.sh /home/
 
 #Providing execute permissions to shell script
 RUN chmod 700 /home/setup.sh
+
+#Remove this finally. Docker containers dont need unnecessary stuff
+RUN apt-get update && apt-get install -y nano 
 
 RUN curl -O http://apache.mirrors.tds.net/incubator/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz \
 	&& tar -xzf guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz \
@@ -143,7 +116,6 @@ RUN curl -O http://apache.mirrors.lucidnetworks.net/incubator/guacamole/$GUACAMO
     && rm guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz \
 	&& rm -rf guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating 
 
-ENV MYSQL_CONNECTOR_VERSION 5.1.44	
 	
 RUN curl -O https://cdn.mysql.com//Downloads/Connector-J/mysql-connector-java-$MYSQL_CONNECTOR_VERSION.tar.gz \
 	&& tar -xzf mysql-connector-java-$MYSQL_CONNECTOR_VERSION.tar.gz \

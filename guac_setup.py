@@ -6,63 +6,95 @@ import sys
 from time import sleep
 
 from guac_test import run_tests
-from db.add_user import add_user
-from db.add_user import fetch_new_usernames
+#from db.add_user import add_user
+#from db.add_user import fetch_new_usernames
 
 
 SQL_CONTAINER_NAME = 'sql_container'
 GUACAMOLE_CONTAINER_NAME = 'guacamole_container'
 SQL_IMAGE_NAME = 'sql_image'
 GUACAMOLE_IMAGE_NAME = 'guacamole_image'
+FILE_NAME = 'administrator.txt'
+
+
+# Establishes the file directory to be used
+# base directory is the file path where this python script is located
+# database directory is the file path where files required for building database container are located
+# guacamole directory is the file path where files required for building guacamole container are located
+def file_directories():
+    base_directory = os.path.dirname(os.path.realpath(__file__))
+    directories = {
+        'base' : base_directory,
+        'database' : base_directory + '/db',
+        'guacamole' : base_directory + '/dock'
+    }
+    return directories
 
 
 # Creates the initial directory structure
-def create_directory_structure():
-    file_directory = os.path.dirname(os.path.realpath(__file__))
+def create_directory_structure(directories):
 
-    if not os.path.isfile(file_directory + '/guac_test.py'):
-        print("Error. guac_test.py is missing in the " + file_directory + " directory. Exiting application")
+    if not os.path.isfile(directories['base'] + '/guac_test.py'):
+        print("Error. guac_test.py is missing in the " + directories['base'] + " directory. Exiting application")
         sys.exit()
 
-    if not os.path.exists(file_directory + '/generated_files/'):
-        os.makedirs(file_directory + '/generated_files/')
+    if not os.path.exists(directories['base'] + '/generated_files/'):
+        os.makedirs(directories['base'] + '/generated_files/')
 
 
 # Cleans up after the code finishes executing
-def clean_directory_structure():
-    file_directory = os.path.dirname(os.path.realpath(__file__))
+def clean_directory_structure(directories):
 
-    if os.path.isfile(file_directory + '/db/__init__.pyc'):
-        os.remove(file_directory + '/db/__init__.pyc')
+    #if os.path.isfile(file_directory + '/db/__init__.pyc'):
+    #    os.remove(file_directory + '/db/__init__.pyc')
 
-    if os.path.isfile(file_directory + '/db/add_user.pyc'):
-        os.remove(file_directory + '/db/add_user.pyc')
+    #if os.path.isfile(file_directory + '/db/add_user.pyc'):
+    #    os.remove(file_directory + '/db/add_user.pyc')
 
-    if os.path.isfile(file_directory + '/guac_test.pyc'):
-        os.remove(file_directory + '/guac_test.pyc')
+    if os.path.isfile(directories['base'] + '/guac_test.pyc'):
+        os.remove(directories['base'] + '/guac_test.pyc')
 
 
-def generate_passwords():
+# Fetches the IU username which acts as the Guacamole Administrator
+# TODO: Can cause SQL injection. Need to sanitize input. Minimal risk here though.
+def fetch_administrator(directories):
+    file_name = FILE_NAME
+    usernames = []
+
+    print('Fetching the usernames in the {}'.format(FILE_NAME))
+
+    with open(directories['database']+'/' + FILE_NAME) as file:
+        for line in file:
+            if line.strip()[0] != '#':
+                usernames.append(line.strip())
+
+    if len(usernames) is not 1:
+        print("Error. Only one IU username allowed in the administrator file")
+        sys.exit()
+
+    return usernames[0]
+
+def generate_passwords(directories):
     mysql_root_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).strip()
     mysql_user_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).strip()
-    file_directory = os.path.dirname(os.path.realpath(__file__))
-    with open(file_directory + '/generated_files/root_pass','w') as file:
+
+    with open(directories['base'] + '/generated_files/root_pass','w') as file:
         file.write(mysql_root_password)
 
-    os.chmod(file_directory + '/generated_files/root_pass',0o600)
+    os.chmod(directories['base'] + '/generated_files/root_pass',0o600)
 
-    with open(file_directory + '/generated_files/user_pass','w') as file:
+    with open(directories['base'] + '/generated_files/user_pass','w') as file:
         file.write(mysql_user_password)
 
-    os.chmod(file_directory + '/generated_files/user_pass', 0o600)
+    os.chmod(directories['base'] + '/generated_files/user_pass', 0o600)
 
     return mysql_root_password,mysql_user_password
 
 
 # Generates guacamole.properties file
-def generate_guac_file(mysql_user_password):
-    file_directory = os.path.dirname(os.path.realpath(__file__))
-    with open(file_directory + '/dock/guacamole.properties','w') as file:
+def generate_guac_file(mysql_user_password,directories):
+
+    with open(directories['guacamole'] + '/guacamole.properties','w') as file:
         # Values for guacd
         guacd_values = 'guacd-hostname: localhost\n' + \
                        'guacd-port: 4822\n'
@@ -79,7 +111,7 @@ def generate_guac_file(mysql_user_password):
 
         file.write(guacd_values + cas_values + mysql_values)
 
-    os.chmod(file_directory + '/generated_files/guacamole.properties', 0o600)
+    os.chmod(directories['guacamole'] + '/guacamole.properties', 0o600)
 
 
 # Removes the guacamole container and sql container if they exist
@@ -121,7 +153,7 @@ def build_sql_image():
     print("SQL image successfully built!")
 
 
-def build_sql_container(mysql_root_password,mysql_user_password):
+def build_sql_container(mysql_root_password,mysql_user_password,administrator):
     sql_container_name = SQL_CONTAINER_NAME
     sql_image_name = SQL_IMAGE_NAME
     print("Creating the SQL container")
@@ -134,7 +166,7 @@ def build_sql_container(mysql_root_password,mysql_user_password):
     # Run the initialization scripts for the database
     subprocess.call(["docker", "exec", "-it", sql_container_name, "bash",
                      "/docker-entrypoint-initdb.d/db_init_scripts.sh",
-                     mysql_root_password, mysql_user_password])
+                     mysql_root_password, mysql_user_password, administrator])
     print("SQL Container successfully created!")
 
 
@@ -158,18 +190,20 @@ def build_guacamole_container():
 
 def main():
     run_tests()
-    create_directory_structure()
-    mysql_root_password, mysql_user_password = generate_passwords()
+    directories = file_directories()
+    create_directory_structure(directories)
+    administrator = fetch_administrator(directories)
+    mysql_root_password, mysql_user_password = generate_passwords(directories)
     remove_containers()
     remove_images()
+    generate_guac_file(mysql_user_password,directories)
     build_sql_image()
-    build_sql_container(mysql_root_password, mysql_user_password)
-    usernames = fetch_new_usernames()
-    add_user(usernames, SQL_CONTAINER_NAME, mysql_user_password)
-    generate_guac_file(mysql_user_password)
+    build_sql_container(mysql_root_password, mysql_user_password,administrator)
+    #usernames = fetch_new_usernames()
+    #add_user(usernames, SQL_CONTAINER_NAME, mysql_user_password)
     build_guacamole_image()
     build_guacamole_container()
-    clean_directory_structure()
+    clean_directory_structure(directories)
 
 if __name__ == '__main__':
     main()

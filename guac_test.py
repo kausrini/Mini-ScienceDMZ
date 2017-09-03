@@ -30,7 +30,7 @@ def check_directories_files():
         print('Error, the db_init_scripts.sh file is missing from the db folder')
         success = False
 
-    if not os.path.isfile(file_directory + '/db/users.txt'):
+    if not os.path.isfile(file_directory + '/db/administrator.txt'):
         print('Error, the users.txt file is missing from the db folder. ' +
               'It needs to contain the user list to access the guacamole connection')
         success = False

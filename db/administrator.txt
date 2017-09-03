@@ -1,0 +1,3 @@
+# Enter only a single IU username. This user would be the administrator for guacamole.
+# The administrator can add other users and administrators.
+kausrini

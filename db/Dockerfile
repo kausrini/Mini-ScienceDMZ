@@ -10,7 +10,8 @@ From hypriot/rpi-mysql:5.5
 # File Author / Maintainer
 MAINTAINER Kaushik Srinivasan <kausrini@iu.edu>
 
-ENV GUACAMOLE_VERSION 0.9.13
+# Arguments passed during the build time
+ARG GUACAMOLE_VERSION
 
 RUN apt-get update && apt-get install -y \
 	curl 

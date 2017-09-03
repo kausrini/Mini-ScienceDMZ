@@ -13,9 +13,11 @@ MAINTAINER Kaushik Srinivasan <kausrini@iu.edu>
 
 # Setting Environment variables
 ENV GUACAMOLE_HOME /etc/guacamole
-ENV TOMCAT_VERSION 8.5.20
-ENV GUACAMOLE_VERSION 0.9.13
-ENV MYSQL_CONNECTOR_VERSION 5.1.44	
+
+# Arguments passed during build time
+ARG TOMCAT_VERSION
+ARG GUACAMOLE_VERSION
+ARG MYSQL_CONNECTOR_VERSION
 
 
 # Java Development Kit dependency installed

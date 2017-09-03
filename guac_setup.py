@@ -13,7 +13,9 @@ import guac_settings as settings
 def create_directory_structure(directories):
 
     if not os.path.isfile(directories[settings.DIRECTORY_BASE] + '/guac_test.py'):
-        print("Error. guac_test.py is missing in the " + directories[settings.DIRECTORY_BASE] + " directory. Exiting application")
+        print((
+            "Error. guac_test.py is missing in the {} directory. "
+            "Exiting application").format(directories[settings.DIRECTORY_BASE]))
         sys.exit()
 
     if not os.path.exists(directories[settings.DIRECTORY_BASE] + '/generated_files/'):
@@ -29,8 +31,9 @@ def clean_directory_structure(directories):
     if os.path.isfile(directories[settings.DIRECTORY_BASE] + '/guac_settings.pyc'):
         os.remove(directories[settings.DIRECTORY_BASE] + '/guac_settings.pyc')
 
+
 # Fetches the IU username which acts as the Guacamole Administrator
-# TODO: Can cause SQL injection. Need to sanitize input. Minimal risk here though.
+# Todo: Can cause SQL injection. Need to sanitize input. Minimal risk here though.
 def fetch_administrator(directories):
     usernames = []
 
@@ -61,11 +64,11 @@ def generate_passwords(directories):
 
     os.chmod(directories[settings.DIRECTORY_BASE] + '/generated_files/user_pass', 0o600)
 
-    return mysql_root_password,mysql_user_password
+    return mysql_root_password, mysql_user_password
 
 
 # Generates guacamole.properties file
-def generate_guac_file(mysql_user_password,directories):
+def generate_guac_properties(mysql_user_password, directories):
 
     with open(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties','w') as file:
         # Values for guacd
@@ -116,16 +119,17 @@ def remove_images():
         print("Removing the Guacamole image of the name {}".format(settings.GUACAMOLE_IMAGE_NAME))
         subprocess.check_output(["docker", "rmi", settings.GUACAMOLE_IMAGE_NAME])
 
-def build_sql_image():
+def build_sql_image(directories):
     print("Building the SQL image...")
-    subprocess.call(["docker","build","-t",settings.SQL_IMAGE_NAME,"./db/."])
+    subprocess.call(["docker", "build", '--build-arg', 'GUACAMOLE_VERSION={}'.format(settings.GUACAMOLE_VERSION),
+                     "-t",settings.SQL_IMAGE_NAME, directories[settings.DIRECTORY_DATABASE] + '/.'])
     print("SQL image successfully built!")
 
 
 def build_sql_container(mysql_root_password,mysql_user_password,administrator):
     print("Creating the SQL container")
     subprocess.call(["docker", "run", "--name", settings.SQL_CONTAINER_NAME,
-                     "-e","MYSQL_ROOT_PASSWORD=" + mysql_root_password,
+                     "-e", "MYSQL_ROOT_PASSWORD=" + mysql_root_password,
                      "-d", settings.SQL_IMAGE_NAME])
     print("Waiting for 30 seconds to setup SQL container with Guacamole Scripts")
     sleep(30)
@@ -137,9 +141,13 @@ def build_sql_container(mysql_root_password,mysql_user_password,administrator):
     print("SQL Container successfully created!")
 
 
-def build_guacamole_image():
+def build_guacamole_image(directories):
     print("Building the Guacamole Image")
-    subprocess.call(["docker", "build", "-t", settings.GUACAMOLE_IMAGE_NAME, "./dock/."])
+    subprocess.call(["docker", "build", '--build-arg', 'GUACAMOLE_VERSION=' + settings.GUACAMOLE_VERSION,
+                     '--build-arg', 'TOMCAT_VERSION=' + settings.TOMCAT_VERSION,
+                     '--build-arg', 'MYSQL_CONNECTOR_VERSION=' + settings.MYSQL_CONNECTOR_VERSION,
+                     "-t", settings.GUACAMOLE_IMAGE_NAME,
+                     directories[settings.DIRECTORY_GUACAMOLE] + '/.'])
     print("Guacamole image successfully built")
 
 
@@ -159,10 +167,10 @@ def main():
     mysql_root_password, mysql_user_password = generate_passwords(directories)
     remove_containers()
     remove_images()
-    generate_guac_file(mysql_user_password,directories)
-    build_sql_image()
-    build_sql_container(mysql_root_password, mysql_user_password,administrator)
-    build_guacamole_image()
+    generate_guac_properties(mysql_user_password, directories)
+    build_sql_image(directories)
+    build_sql_container(mysql_root_password, mysql_user_password, administrator)
+    build_guacamole_image(directories)
     build_guacamole_container()
     clean_directory_structure(directories)
 

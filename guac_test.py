@@ -2,6 +2,7 @@
 
 import os
 import urllib2
+import sys
 
 import guac_settings as settings
 
@@ -56,40 +57,72 @@ def url_exists(url):
 
 
 # Todo: Do this (Need to pass guacamole Environment variable)
+# Todo: create clear instructions to fix link related errors
 def check_dockerfile_links(base_directory):
-
-    sucess = True
+    success = True
     # Following links are present in the guacamole Dockerfile
-    tomcat = 'https://www-us.apache.org/dist/tomcat/tomcat-8/v{}/bin/apache-tomcat-{}.tar.gz'. \
-        format(settings.TOMCAT_VERSION, settings.TOMCAT_VERSION)
 
-    guacamole_server = 'http://apache.mirrors.tds.net/incubator/guacamole/{}' \
-                           .format(settings.GUACAMOLE_VERSION) + '-incubating/source/guacamole-server-{}' \
-                           .format(settings.GUACAMOLE_VERSION) + '-incubating.tar.gz'
+    tomcat = (
+        "https://www-us.apache.org/dist/tomcat/tomcat-8/v{}"
+        "/bin/apache-tomcat-{}"
+        ".tar.gz"
+    ).format(settings.TOMCAT_VERSION, settings.TOMCAT_VERSION)
 
-    guacamole_client = 'http://apache.mirrors.tds.net/incubator/guacamole/{}-incubating/binary/guacamole-{}-incubating.war'.format(
-        settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
+    guacamole_server = (
+        'http://apache.mirrors.tds.net/incubator/guacamole/{}' 
+        '-incubating/source/guacamole-server-{}' 
+        '-incubating.tar.gz'
+    ).format(settings.GUACAMOLE_VERSION,settings.GUACAMOLE_VERSION)
 
-    guacamole_cas = 'http://apache.mirrors.tds.net/incubator/guacamole/{}-incubating/binary/guacamole-auth-cas-{}-incubating.tar.gz'.format(
-        settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
+    guacamole_client = (
+        'http://apache.mirrors.tds.net/incubator/guacamole/{}'
+        '-incubating/binary/guacamole-{}-incubating.war'
+    ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
-    guacamole_jdbc = 'http://apache.mirrors.lucidnetworks.net/incubator/guacamole/{}-incubating/binary/guacamole-auth-jdbc-{}-incubating.tar.gz'.format(
-        settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
+    guacamole_cas = (
+        'http://apache.mirrors.tds.net/incubator/guacamole/{}'
+        '-incubating/binary/guacamole-auth-cas-{}-incubating.tar.gz'
+    ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
-    mysql_connector = 'https://cdn.mysql.com//Downloads/Connector-J/mysql-connector-java-{}.tar.gz'.format(
-        settings.MYSQL_CONNECTOR_VERSION)
+    mysql_connector = (
+        'https://cdn.mysql.com//Downloads/Connector-J/mysql-connector-java-{}.tar.gz'
+    ).format(settings.MYSQL_CONNECTOR_VERSION)
 
-    # The following link appears in the database docker file. Its the same jdbc link as before
-    mysql_jdbc = guacamole_jdbc
+    guacamole_jdbc = (
+        'http://apache.mirrors.lucidnetworks.net/incubator/guacamole/{}'
+        '-incubating/binary/guacamole-auth-jdbc-{}-incubating.tar.gz'
+    ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
     if not url_exists(tomcat):
-        sucess = False
-        print('[ERROR] There is some issue with the link {}. Follow these steps to resolve it.\n'.format(tomcat) +
-              '1. Go to the following link {} in your browser.\n'.format(
-                  'https://www-us.apache.org/dist/tomcat/tomcat-8/') + '2. Check for the folder name with a tomcat ' +
-              'version greater than ' + settings.TOMCAT_VERSION + '3. Use the new version name as the value for the variable TOMCAT_VERSION in the file '+ base_directory + '/guac_settings.py')
+        success = False
+        print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(tomcat))
 
+    if not url_exists(guacamole_server):
+        success = False
+        print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(guacamole_server))
 
+    if not url_exists(guacamole_client):
+        success = False
+        print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(guacamole_client))
+
+    if not url_exists(guacamole_cas):
+        success = False
+        print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(guacamole_cas))
+
+    if not url_exists(mysql_connector):
+        success = False
+        print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(mysql_connector))
+
+    if not url_exists(guacamole_jdbc):
+        success = False
+        print('[Error] The link {} specified in the Guacamole Dockerfile and in the Database Dockerfile are invalid.'
+              .format(guacamole_jdbc))
+
+    if not success:
+        print('Fix the above errors and re-run the application')
+        sys.exit()
+    else:
+        print('All links specified in the Dockerfiles are valid')
 
 
 def run_tests():

@@ -4,8 +4,8 @@
 start_services()
 {
 	/etc/init.d/guacd start
-	/opt/tomcat/bin/catalina.sh start
-	/bin/bash
+	/opt/tomcat/bin/catalina.sh run
+	#/bin/bash
 
 }
 

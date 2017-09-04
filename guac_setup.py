@@ -155,7 +155,7 @@ def build_guacamole_container():
     print("Creating the Guacamole Container and linking to the SQL container")
     subprocess.call(["docker", "run", "--name", settings.GUACAMOLE_CONTAINER_NAME,
                      "--link", settings.SQL_CONTAINER_NAME, "-p", "8080:8080",
-                     "-it", settings.GUACAMOLE_IMAGE_NAME])
+                     "-d", "-t", settings.GUACAMOLE_IMAGE_NAME])
     print("Guacamole container successfully created and linked to SQL Container")
 
 

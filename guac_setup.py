@@ -50,16 +50,18 @@ def fetch_administrator(directories):
 
     return usernames[0]
 
+
+# A function which uses the openssl package in the operating system to generate mysql passwords
 def generate_passwords(directories):
     mysql_root_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).strip()
     mysql_user_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).strip()
 
-    with open(directories[settings.DIRECTORY_BASE] + '/generated_files/root_pass','w') as file:
+    with open(directories[settings.DIRECTORY_BASE] + '/generated_files/root_pass', 'w') as file:
         file.write(mysql_root_password)
 
-    os.chmod(directories[settings.DIRECTORY_BASE] + '/generated_files/root_pass',0o600)
+    os.chmod(directories[settings.DIRECTORY_BASE] + '/generated_files/root_pass', 0o600)
 
-    with open(directories[settings.DIRECTORY_BASE] + '/generated_files/user_pass','w') as file:
+    with open(directories[settings.DIRECTORY_BASE] + '/generated_files/user_pass', 'w') as file:
         file.write(mysql_user_password)
 
     os.chmod(directories[settings.DIRECTORY_BASE] + '/generated_files/user_pass', 0o600)
@@ -70,18 +72,18 @@ def generate_passwords(directories):
 # Generates guacamole.properties file
 def generate_guac_properties(mysql_user_password, directories):
 
-    with open(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties','w') as file:
+    with open(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties', 'w') as file:
         # Values for guacd
         guacd_values = 'guacd-hostname: localhost\n' + \
                        'guacd-port: 4822\n'
         # values for CAS module
         cas_values = 'cas-authorization-endpoint: https://cas.iu.edu/cas\n' + \
                      'cas-redirect-uri: http://poc1.dyndns-at-work.com:8080/guacamole\n'
-        mysql_host = 'mysql-hostname: '+ settings.SQL_CONTAINER_NAME + '\n'
+        mysql_host = 'mysql-hostname: ' + settings.SQL_CONTAINER_NAME + '\n'
         mysql_port = 'mysql-port: 3306\n'
         mysql_database = 'mysql-database: guacamole_db\n'
         mysql_username = 'mysql-username: guacamole_user\n'
-        mysql_password = 'mysql-password: ' + mysql_user_password +'\n'
+        mysql_password = 'mysql-password: ' + mysql_user_password + '\n'
         # Values for MYSQL Authentication
         mysql_values = mysql_host + mysql_port + mysql_database + mysql_username + mysql_password
 
@@ -90,7 +92,7 @@ def generate_guac_properties(mysql_user_password, directories):
     os.chmod(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties', 0o600)
 
 
-# Removes the guacamole container and sql container if they exist
+# Removes the guacamole container and sql container if they already exist
 def remove_containers():
     # Remove all running/stopped containers
     sql_container_id = subprocess.check_output(["docker", "ps", "--all", "--quiet",
@@ -98,35 +100,39 @@ def remove_containers():
     guacamole_container_id = subprocess.check_output(["docker", "ps", "--all", "--quiet",
                                                       "--filter", "name=" + settings.GUACAMOLE_CONTAINER_NAME]).strip()
 
-    if len(sql_container_id)>0:
+    if len(sql_container_id) > 0:
         print("Removing the SQL container of the name {}".format(settings.SQL_CONTAINER_NAME))
         subprocess.check_output(["docker", "rm", "-f", sql_container_id])
 
-    if len(guacamole_container_id)>0:
+    if len(guacamole_container_id) > 0:
         print("Removing the Guacamole container of the name {}".format(settings.GUACAMOLE_CONTAINER_NAME))
         subprocess.check_output(["docker", "rm", "-f", guacamole_container_id])
 
 
+# Removes the existing SQL image and Guacamole image
 def remove_images():
     sql_image_id = subprocess.check_output(["docker", "images", "--quiet", settings.SQL_IMAGE_NAME]).strip()
     guacamole_image_id = subprocess.check_output(["docker", "images", "--quiet", settings.GUACAMOLE_IMAGE_NAME]).strip()
 
-    if len(sql_image_id)>0:
+    if len(sql_image_id) > 0:
         print("Removing the SQL Image of the name {}".format(settings.SQL_IMAGE_NAME))
         subprocess.check_output(["docker", "rmi", settings.SQL_IMAGE_NAME])
 
-    if len(guacamole_image_id)>0:
+    if len(guacamole_image_id) > 0:
         print("Removing the Guacamole image of the name {}".format(settings.GUACAMOLE_IMAGE_NAME))
         subprocess.check_output(["docker", "rmi", settings.GUACAMOLE_IMAGE_NAME])
 
+
+# Builds the sql image
 def build_sql_image(directories):
     print("Building the SQL image...")
     subprocess.call(["docker", "build", '--build-arg', 'GUACAMOLE_VERSION={}'.format(settings.GUACAMOLE_VERSION),
-                     "-t",settings.SQL_IMAGE_NAME, directories[settings.DIRECTORY_DATABASE] + '/.'])
+                     "-t", settings.SQL_IMAGE_NAME, directories[settings.DIRECTORY_DATABASE] + '/.'])
     print("SQL image successfully built!")
 
 
-def build_sql_container(mysql_root_password,mysql_user_password,administrator):
+# Builds the sql container from the sql image
+def build_sql_container(mysql_root_password, mysql_user_password, administrator):
     print("Creating the SQL container")
     subprocess.call(["docker", "run", "--name", settings.SQL_CONTAINER_NAME,
                      "-e", "MYSQL_ROOT_PASSWORD=" + mysql_root_password,
@@ -141,6 +147,7 @@ def build_sql_container(mysql_root_password,mysql_user_password,administrator):
     print("SQL Container successfully created!")
 
 
+# Builds the guacamole image
 def build_guacamole_image(directories):
     print("Building the Guacamole Image")
     subprocess.call(["docker", "build", '--build-arg', 'GUACAMOLE_VERSION=' + settings.GUACAMOLE_VERSION,
@@ -151,6 +158,7 @@ def build_guacamole_image(directories):
     print("Guacamole image successfully built")
 
 
+# Builds the guacamole container from the guacamole image
 def build_guacamole_container():
     print("Creating the Guacamole Container and linking to the SQL container")
     subprocess.call(["docker", "run", "--name", settings.GUACAMOLE_CONTAINER_NAME,

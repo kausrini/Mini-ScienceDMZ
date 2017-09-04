@@ -7,6 +7,7 @@ import sys
 import guac_settings as settings
 
 
+# Checks if expected directory structure is present and checks for all the required files
 def check_directories_files(directories):
     print("Checking if all the required files exist")
     success = True
@@ -56,11 +57,12 @@ def url_exists(url):
         return False
 
 
-# Todo: Do this (Need to pass guacamole Environment variable)
+# This function is used to check if all the links specified in the Dockerfile(s) are valid.
 # Todo: create clear instructions to fix link related errors
 def check_dockerfile_links(base_directory):
     success = True
     # Following links are present in the guacamole Dockerfile
+    # The guacamole_jdbc link exists in both guacamole Dockerfile and database Dockerfile
 
     tomcat = (
         "https://www-us.apache.org/dist/tomcat/tomcat-8/v{}"

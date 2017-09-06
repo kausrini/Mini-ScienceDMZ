@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.7
 
+import argparse
 import os
 import subprocess
 import sys
@@ -7,6 +8,18 @@ from time import sleep
 
 from guac_test import run_tests
 import guac_settings as settings
+
+
+# Obtain command line arguments
+def fetch_argument():
+    parser = argparse.ArgumentParser(description = 'Sets up the Guacamole Server')
+    parser.add_argument('-u','--username',
+                        help = 'The IU username which acts as the Administrator for the Guacamole application',
+                        required = True
+                        )
+
+    arguments = parser.parse_args()
+    return arguments.username
 
 
 # Creates the initial directory structure
@@ -30,25 +43,6 @@ def clean_directory_structure(directories):
 
     if os.path.isfile(directories[settings.DIRECTORY_BASE] + '/guac_settings.pyc'):
         os.remove(directories[settings.DIRECTORY_BASE] + '/guac_settings.pyc')
-
-
-# Fetches the IU username which acts as the Guacamole Administrator
-# Todo: Can cause SQL injection. Need to sanitize input. Minimal risk here though.
-def fetch_administrator(directories):
-    usernames = []
-
-    print('Fetching the usernames in the {}'.format(settings.FILE_NAME))
-
-    with open(directories[settings.DIRECTORY_DATABASE]+'/' + settings.FILE_NAME) as file:
-        for line in file:
-            if line.strip()[0] != '#':
-                usernames.append(line.strip())
-
-    if len(usernames) is not 1:
-        print("Error. Only one IU username allowed in the administrator file")
-        sys.exit()
-
-    return usernames[0]
 
 
 # A function which uses the openssl package in the operating system to generate mysql passwords
@@ -168,10 +162,10 @@ def build_guacamole_container():
 
 
 def main():
+    administrator = fetch_argument()
     run_tests()
     directories = settings.fetch_file_directories()
     create_directory_structure(directories)
-    administrator = fetch_administrator(directories)
     mysql_root_password, mysql_user_password = generate_passwords(directories)
     remove_containers()
     remove_images()

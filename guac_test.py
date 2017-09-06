@@ -20,21 +20,12 @@ def check_directories_files(directories):
         print('Error, the setup.sh file is missing from the dock folder')
         success = False
 
-    if not os.path.isfile(directories[settings.DIRECTORY_GUACAMOLE] + '/setup.sh'):
-        print('Error, the setup.sh file is missing from the dock folder')
-        success = False
-
     if not os.path.isfile(directories[settings.DIRECTORY_DATABASE] + '/Dockerfile'):
         print('Error, the Dockerfile is missing from the db folder')
         success = False
 
     if not os.path.isfile(directories[settings.DIRECTORY_DATABASE] + '/db_init_scripts.sh'):
         print('Error, the db_init_scripts.sh file is missing from the db folder')
-        success = False
-
-    if not os.path.isfile(directories[settings.DIRECTORY_DATABASE] + '/administrator.txt'):
-        print('Error, the users.txt file is missing from the db folder. ' +
-              'It needs to contain the administrator for guacamole')
         success = False
 
     if not success:

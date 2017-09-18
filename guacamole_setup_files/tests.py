@@ -4,7 +4,7 @@ import os
 import urllib2
 import sys
 
-import guac_settings as settings
+import settings
 
 
 # Checks if expected directory structure is present and checks for all the required files

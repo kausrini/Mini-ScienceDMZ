@@ -16,6 +16,12 @@ DIRECTORY_BASE = 'base'
 DIRECTORY_DATABASE = 'database'
 DIRECTORY_GUACAMOLE = 'guacamole'
 
+# CAS Extension parameters for Guacamole
+CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
+CAS_REDIRECT_URI = 'http://poc1.dyndns-at-work.com/guacamole/'
+# Note : CAS_REDIRECT_URI needs to be changed to http://poc1.dyndns-at-work.com:8080/guacamole/
+# if proxy server not configured.
+
 
 # Establishes the file directory to be used
 # base directory is the file path where this python script is located

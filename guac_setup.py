@@ -72,7 +72,7 @@ def generate_guac_properties(mysql_user_password, directories):
                        'guacd-port: 4822\n'
         # values for CAS module
         cas_values = 'cas-authorization-endpoint: https://cas.iu.edu/cas\n' + \
-                     'cas-redirect-uri: http://poc1.dyndns-at-work.com:8080/guacamole\n'
+                     'cas-redirect-uri: http://poc1.dyndns-at-work.com/guacamole/\n'
         mysql_host = 'mysql-hostname: ' + settings.SQL_CONTAINER_NAME + '\n'
         mysql_port = 'mysql-port: 3306\n'
         mysql_database = 'mysql-database: guacamole_db\n'
@@ -125,10 +125,24 @@ def build_sql_image(directories):
     print("SQL image successfully built!")
 
 
+# Create a custom network for our containers
+def create_docker_network():
+    network_name = 'guacamole_network'
+    network_id = subprocess.check_output(['docker', 'network', 'ls', '--filter', 'name={}'.format(network_name), '-q']).strip()
+
+    if len(network_id) == 0:
+        print('Creating a new docker network {} for our containers'.format(network_name))
+        subprocess.check_output(['docker', 'network', 'create', '--driver', 'bridge', network_name])
+    else:
+        print("Containers will be created on the docker network {}".format(network_name))
+
+    return network_name
+
+
 # Builds the sql container from the sql image
-def build_sql_container(mysql_root_password, mysql_user_password, administrator):
+def build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator):
     print("Creating the SQL container")
-    subprocess.call(["docker", "run", "--name", settings.SQL_CONTAINER_NAME,
+    subprocess.call(["docker", "run", "--network={}".format(docker_network_name),"--name", settings.SQL_CONTAINER_NAME,
                      "-e", "MYSQL_ROOT_PASSWORD=" + mysql_root_password,
                      "-d", settings.SQL_IMAGE_NAME])
     print("Waiting for 30 seconds to setup SQL container with Guacamole Scripts")
@@ -153,10 +167,10 @@ def build_guacamole_image(directories):
 
 
 # Builds the guacamole container from the guacamole image
-def build_guacamole_container():
+def build_guacamole_container(docker_network_name):
     print("Creating the Guacamole Container and linking to the SQL container")
-    subprocess.call(["docker", "run", "--name", settings.GUACAMOLE_CONTAINER_NAME,
-                     "--link", settings.SQL_CONTAINER_NAME, "-p", "8080:8080",
+    subprocess.call(["docker", "run", "--network={}".format(docker_network_name), "--name", settings.GUACAMOLE_CONTAINER_NAME,
+                     "-p", "8080:8080",
                      "-d", "-t", settings.GUACAMOLE_IMAGE_NAME])
     print("Guacamole container successfully created and linked to SQL Container")
 
@@ -170,10 +184,11 @@ def main():
     remove_containers()
     remove_images()
     generate_guac_properties(mysql_user_password, directories)
+    docker_network_name = create_docker_network()
     build_sql_image(directories)
-    build_sql_container(mysql_root_password, mysql_user_password, administrator)
+    build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator)
     build_guacamole_image(directories)
-    build_guacamole_container()
+    build_guacamole_container(docker_network_name)
     clean_directory_structure(directories)
 
 if __name__ == '__main__':

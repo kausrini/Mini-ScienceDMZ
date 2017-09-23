@@ -1,0 +1,2 @@
+#First uncommented line is the dynv6 token used for authentication by dynv6. Not a good auth mechanism :-( 
+<YOUR_TOKEN_HERE>

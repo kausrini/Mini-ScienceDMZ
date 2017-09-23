@@ -4,6 +4,11 @@ import getpass
 import time
 
 
+DOMAIN_NAME = 'mini-dmz.dynv6.net'
+# The following email address can be used to recover Server Certificate key
+EMAIL_ADDRESS = 'kausrini@iu.edu'
+
+
 # Obtain command line arguments
 def fetch_argument():
     parser = argparse.ArgumentParser(description='Sets up the Raspberry Pi')
@@ -28,13 +33,23 @@ def fetch_argument():
 
 # Installs all required packages for our application
 def install_packages():
-    packages = ['dnsmasq', 'ddclient', 'git','apache2']
+    packages = ['dnsmasq', 'ddclient', 'git','apache2','python-certbot-apache']
+
+    # Prefer IPV4 over IPV6 for downloading updates
+    subprocess.check_output(['sed', '-i', '--',
+                             's|#precedence ::ffff:0:0/96  100|precedence ::ffff:0:0/96  100|g',
+                             '/etc/gai.conf'])
 
     print('Upgrading existing packages')
     subprocess.call(['apt-get', 'update'])
     subprocess.call(['apt-get', '-y', 'upgrade'])
     print('Installing the following packages {}'.format(", ".join(packages)))
     subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
+
+    # Resetting the preferences to default
+    subprocess.check_output(['sed', '-i', '--',
+                             's|precedence ::ffff:0:0/96  100|#precedence ::ffff:0:0/96  100|g',
+                             '/etc/gai.conf'])
 
 
 # The raspberry pi acts as a router for the scientific device at
@@ -65,7 +80,7 @@ def dyn_dns_configuration(dyn_username, dyn_password):
     ).format(dyn_username, dyn_password)
 
     print('Adding the Dynamic DNS configuration to /etc/ddclient.conf file')
-    with open('/etc/ddclient.conf', 'a') as file:
+    with open('/etc/ddclient.conf', 'w') as file:
         file.write(dyn_dns_config)
 
 
@@ -74,23 +89,38 @@ def reverse_proxy_configuration():
     print("Creating the Reverse Proxy Configuration")
 
     proxy_config = (
-        '\n<Location /guacamole/>\n'
-        '\tOrder allow,deny\n\tAllow from all\n'
-        '\tProxyPass http://poc1.dyndns-at-work.com:8080/guacamole/ flushpackets=on\n'
-        '\tProxyPassReverse http://poc1.dyndns-at-work.com:8080/guacamole/\n'
-        '</Location>\n'
-        '\n<Location /guacamole/websocket-tunnel>\n'
-        '\tOrder allow,deny\n\tAllow from all\n'
-        '\tProxyPass ws://poc1.dyndns-at-work.com:8080/guacamole/websocket-tunnel\n'
-        '\tProxyPassReverse ws://poc1.dyndns-at-work.com:8080/guacamole/websocket-tunnel\n'
-        '</Location>\n'
-    )
+        '\n\tProxyPass /guacamole/ http://{}:8080/guacamole/ flushpackets=on\n'
+        '\tProxyPassReverse /guacamole/ http://{}:8080/guacamole/\n'
+        '\tProxyPass /guacamole/websocket-tunnel ws://{}:8080/guacamole/websocket-tunnel\n'
+        '\tProxyPassReverse /guacamole/websocket-tunnel ws://{}:8080/guacamole/websocket-tunnel\n\n'
+    ).format(DOMAIN_NAME,  DOMAIN_NAME, DOMAIN_NAME, DOMAIN_NAME)
 
     subprocess.check_output(['a2enmod','proxy_http'])
     subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
 
-    with open('/etc/apache2/sites-available/000-default.conf', 'w') as file:
-        file.write(proxy_config)
+    contents = None
+
+    with open('/etc/apache2/sites-enabled/000-default-le-ssl.conf', 'r') as file:
+        contents = file.readlines()
+
+    with open('/etc/apache2/sites-enabled/000-default-le-ssl.conf', 'w') as file:
+        for line in contents:
+            file.write(line)
+            if line.strip() == 'DocumentRoot /var/www/html':
+                file.write(proxy_config)
+
+
+def ssl_configuration():
+
+    # Update DNS Record before getting certificate
+    path_name = '/etc/dns/dynv6.sh'
+    subprocess.check_output([path_name, DOMAIN_NAME])
+
+    print('Setting up HTTPS support for our website')
+    subprocess.check_output(['certbot', '-n', '--apache',
+                             '-d', 'mini-dmz.dynv6.net',
+                             '--redirect', '--agree-tos',
+                             '--email', EMAIL_ADDRESS])
 
 
 # Installing docker
@@ -118,10 +148,12 @@ def clean_up_setup():
 
 
 if __name__ == '__main__':
-    username, password = fetch_argument()
+    #username, password = fetch_argument()
     install_packages()
     dhcp_server_configuration()
-    dyn_dns_configuration(username, password)
+    #dyn_dns_configuration(username, password)
     docker_install()
     guacamole_configuration()
+    ssl_configuration()
+    reverse_proxy_configuration()
     clean_up_setup()

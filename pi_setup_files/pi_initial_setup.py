@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import time
 
+DOMAIN_NAME = 'mini-dmz.dynv6.net'
 
 # Obtain command line arguments
 def fetch_argument():
@@ -56,11 +57,6 @@ def pi_configuration():
                              's|gb|us|g',
                              '/etc/default/keyboard'])
 
-    # Prefer IPV4 over IPV6 for downloading updates
-    subprocess.check_output(['sed', '-i', '--',
-                             's|#precedence ::ffff:0:0/96  100|precedence ::ffff:0:0/96  100|g',
-                             '/etc/gai.conf'])
-
 
 # Create the firewall configuration for the raspberry pi
 def firewall_configuration():
@@ -75,7 +71,42 @@ def firewall_configuration():
     os.chmod('/etc/firewall/iptables.sh', 0o700)
 
 
+# Create the firewall configuration for the raspberry pi
+def dns_configuration():
+    file_name = 'dynv6.sh'
+    path_name = '/etc/dns/dynv6.sh'
+    # Creating the folder for our firewall script file
+    os.makedirs('/etc/dns')
+    # copying iptables rules to the new folder
+    shutil.copy2(file_name, path_name)
+
+    # Changing file permissions
+    os.chmod(path_name, 0o700)
+
+    with open('dynv6_token.txt','r') as file:
+        data = file.readlines()
+
+    dns_token = None
+    for string in data:
+        if string.strip()[0] != '#' and len(string.strip()) > 0:
+            dns_token = string
+            break
+
+    if dns_token is None:
+        print(('[ERROR] The file {} does not have a valid dynv6_token.'
+            'Check out https://dynv6.com/docs/apis'
+             ).format(file_name))
+        sys.exit()
+
+    subprocess.check_output(['sed', '-i', '--',
+                             's|token="YOUR_DYNV6_TOKEN_HERE"|token="'+ dns_token + '"|g',
+                             path_name])
+
+
 # Create Wifi configuration for connecting to IU Secure network
+# Adds script to initialize firewall rules
+# Adds script to register ip with dynv6 service
+# Todo: token for dynamic dns remove hardcoded value
 def wifi_configuration(username, password):
 
     wpa_config = (
@@ -97,8 +128,9 @@ def wifi_configuration(username, password):
         'iface wlan0 inet dhcp\n'
         '\tpre-up wpa_supplicant -B -Dwext -i wlan0 -c/etc/wpa_supplicant/wpa_supplicant.conf\n'
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
+        '\tpost-up /bin/bash /etc/dns/dynv6.sh {}\n'
         '\tpost-down killall -q wpa_supplicant\n'
-    )
+    ).format(DOMAIN_NAME)
     print('Adding WPA configuration to /etc/wpa_supplicant/wpa_supplicant.conf.conf file')
     with open('/etc/wpa_supplicant/wpa_supplicant.conf', 'a') as file:
         file.write(final_wpa_config)
@@ -134,5 +166,6 @@ if __name__ == '__main__':
     pi_configuration()
     firewall_configuration()
     wifi_configuration(username, password)
+    dns_configuration()
     ethernet_configuration()
     clean_up_setup()

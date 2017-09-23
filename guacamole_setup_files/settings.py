@@ -18,7 +18,7 @@ DIRECTORY_GUACAMOLE = 'guacamole'
 
 # CAS Extension parameters for Guacamole
 CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
-CAS_REDIRECT_URI = 'http://poc1.dyndns-at-work.com/guacamole/'
+CAS_REDIRECT_URI = 'http://mini-dmz.dynv6.net/guacamole/'
 # Note : CAS_REDIRECT_URI needs to be changed to http://poc1.dyndns-at-work.com:8080/guacamole/
 # if proxy server not configured.
 

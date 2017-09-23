@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# Default policy for Input and Output
-iptables -P INPUT   DROP
+# Default policy for Output
 iptables -P OUTPUT  ACCEPT
 
 # Allows all loopback (lo0) traffic and drop all traffic to 127/8 that doesn't use lo0
@@ -16,6 +15,7 @@ iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -p tcp --dport 80 -j ACCEPT
 iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+iptables -A INPUT -j DROP
 
 # Allow SSH connections 
 iptables -A INPUT -p tcp -m state --state NEW --dport 22 -j ACCEPT

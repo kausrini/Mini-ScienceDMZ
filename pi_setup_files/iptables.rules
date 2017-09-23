@@ -20,6 +20,8 @@ iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 # Allow SSH connections 
 iptables -A INPUT -p tcp -m state --state NEW --dport 22 -j ACCEPT
 
+# Allow DHCP Requests through
+iptables  -A  INPUT -i eth0 -p udp --dport 67:68 --sport 67:68 -j ACCEPT
 
 # Allow ping
 #  note that blocking other types of icmp packets is considered a bad idea by some

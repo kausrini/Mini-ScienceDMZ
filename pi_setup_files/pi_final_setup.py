@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import getpass
 import time
+import os
 
 
 DOMAIN_NAME = 'mini-dmz.dynv6.net'
@@ -33,7 +34,7 @@ def fetch_argument():
 
 # Installs all required packages for our application
 def install_packages():
-    packages = ['dnsmasq', 'ddclient', 'git','apache2','python-certbot-apache']
+    packages = ['dnsmasq', 'git','apache2','python-certbot-apache']
 
     # Prefer IPV4 over IPV6 for downloading updates
     subprocess.check_output(['sed', '-i', '--',
@@ -113,8 +114,7 @@ def reverse_proxy_configuration():
 def ssl_configuration():
 
     # Update DNS Record before getting certificate
-    path_name = '/etc/dns/dynv6.sh'
-    subprocess.check_output([path_name, DOMAIN_NAME])
+    subprocess.check_output('/etc/dns/dynv6.sh')
 
     print('Setting up HTTPS support for our website')
     subprocess.check_output(['certbot', '-n', '--apache',
@@ -135,10 +135,33 @@ def docker_install():
 # Downloading our application from our git repository
 def guacamole_configuration():
     path = '/home/pi/minidmz'
+    git_command = 'git clone https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
     print('Fetching the guacamole setup files from git repository')
-    subprocess.call(['git', 'clone', 'https://github.com/kausrini/Mini-ScienceDMZ.git', path])
-    subprocess.check_output(['chown','-R', 'pi', path])
+    subprocess.call(['runuser', '-l', 'pi', '-c', git_command])
+    #subprocess.check_output(['chown','-R', 'pi', path])
 
+
+def setup_cronjobs():
+
+    # Update dns after reboot.
+    # Update dns every one hour.
+    # Start docker containers on boot (Todo Python script for this with proper checks of existence of containers)
+    cron_jobs = (
+        '@reboot /etc/dns/dynv6.sh\n'
+        '0 * * * * /etc/dns/dynv6.sh\n'
+        '@reboot docker start sql_container\n'
+        '@reboot docker start guacamole_container\n'
+    )
+
+    cron_file_name = 'temp_cron'
+    file_path = '/tmp/' + cron_file_name
+
+    with open(file_path, 'w') as file:
+        file.write(cron_jobs)
+
+    subprocess.check_output(['crontab', file_path])
+
+    os.remove(file_path)
 
 # Rebooting the raspberry pi
 def clean_up_setup():
@@ -156,4 +179,5 @@ if __name__ == '__main__':
     guacamole_configuration()
     ssl_configuration()
     reverse_proxy_configuration()
+    setup_cronjobs()
     clean_up_setup()

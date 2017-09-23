@@ -75,9 +75,9 @@ def firewall_configuration():
 def dns_configuration():
     file_name = 'dynv6.sh'
     path_name = '/etc/dns/dynv6.sh'
-    # Creating the folder for our firewall script file
+    # Creating the folder for our dns script file
     os.makedirs('/etc/dns')
-    # copying iptables rules to the new folder
+    # copying dns script to the new folder
     shutil.copy2(file_name, path_name)
 
     # Changing file permissions
@@ -87,19 +87,24 @@ def dns_configuration():
         data = file.readlines()
 
     dns_token = None
+
     for string in data:
-        if string.strip()[0] != '#' and len(string.strip()) > 0:
-            dns_token = string
-            break
+        if string.strip()[0] != '#' and 'token' in string.strip():
+            dns_token = string.strip().split('=')[1].strip()
 
     if dns_token is None:
-        print(('[ERROR] The file {} does not have a valid dynv6_token.'
-            'Check out https://dynv6.com/docs/apis'
+        print(('[ERROR] The file {} does not have a valid dynv6_token.\n'
+            'Check out https://dynv6.com/docs/apis for token.\n'
+               'Then token must be present in the file of the form "token = YOUR TOKEN"\n'
              ).format(file_name))
         sys.exit()
 
     subprocess.check_output(['sed', '-i', '--',
                              's|token="YOUR_DYNV6_TOKEN_HERE"|token="'+ dns_token + '"|g',
+                             path_name])
+
+    subprocess.check_output(['sed', '-i', '--',
+                             's|hostname="YOUR_DOMAIN_NAME_HERE"|hostname="' + DOMAIN_NAME + '"|g',
                              path_name])
 
 
@@ -124,13 +129,14 @@ def wifi_configuration(username, password):
     final_wpa_config = '\nnetwork={\n' + wpa_config + '}\n'
 
     interface_config = (
-        '\nallow-hotplug wlan0\n'
+        '\nauto wlan0\n'
+        'allow-hotplug wlan0\n'
         'iface wlan0 inet dhcp\n'
         '\tpre-up wpa_supplicant -B -Dwext -i wlan0 -c/etc/wpa_supplicant/wpa_supplicant.conf\n'
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
-        '\tpost-up /bin/bash /etc/dns/dynv6.sh {}\n'
+        '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
         '\tpost-down killall -q wpa_supplicant\n'
-    ).format(DOMAIN_NAME)
+    )
     print('Adding WPA configuration to /etc/wpa_supplicant/wpa_supplicant.conf.conf file')
     with open('/etc/wpa_supplicant/wpa_supplicant.conf', 'a') as file:
         file.write(final_wpa_config)

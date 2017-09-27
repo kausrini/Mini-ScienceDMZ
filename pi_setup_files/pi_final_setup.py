@@ -34,7 +34,7 @@ def fetch_argument():
 
 # Installs all required packages for our application
 def install_packages():
-    packages = ['dnsmasq', 'git','apache2','python-certbot-apache']
+    packages = ['dnsmasq', 'git', 'apache2', 'python-certbot-apache', 'python3-requests']
 
     # Prefer IPV4 over IPV6 for downloading updates
     subprocess.check_output(['sed', '-i', '--',

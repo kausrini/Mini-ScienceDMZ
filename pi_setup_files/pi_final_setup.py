@@ -138,7 +138,7 @@ def guacamole_configuration():
     git_command = 'git clone https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
     print('Fetching the guacamole setup files from git repository')
     subprocess.call(['runuser', '-l', 'pi', '-c', git_command])
-    #subprocess.check_output(['chown','-R', 'pi', path])
+    subprocess.call(['chmod', '774', path + '/guacamole_setup_files/*.py'])
 
 
 def setup_cronjobs():
@@ -160,8 +160,8 @@ def setup_cronjobs():
         file.write(cron_jobs)
 
     subprocess.check_output(['crontab', file_path])
-
     os.remove(file_path)
+
 
 # Rebooting the raspberry pi
 def clean_up_setup():

@@ -1,9 +1,10 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
 import argparse
 import os
 import subprocess
 import sys
+import string
 from time import sleep
 
 from tests import run_tests
@@ -23,21 +24,19 @@ def fetch_argument():
 
 # Creates the initial directory structure
 def create_directory_structure(directories):
-
     if not os.path.isfile(directories[settings.DIRECTORY_BASE] + '/tests.py'):
         print((
-            "[Error] tests.py is missing in the {} directory. "
-            "Exiting application"
+                  "[Error] tests.py is missing in the {} directory. "
+                  "Exiting application"
               ).format(directories[settings.DIRECTORY_BASE]))
         sys.exit()
 
-    # if not os.path.exists(directories[settings.DIRECTORY_BASE] + '/generated_files/'):
-    #    os.makedirs(directories[settings.DIRECTORY_BASE] + '/generated_files/')
+        # if not os.path.exists(directories[settings.DIRECTORY_BASE] + '/generated_files/'):
+        #    os.makedirs(directories[settings.DIRECTORY_BASE] + '/generated_files/')
 
 
 # Cleans up after the code finishes executing
 def clean_directory_structure(directories):
-
     if os.path.isfile(directories[settings.DIRECTORY_BASE] + '/guac_test.pyc'):
         os.remove(directories[settings.DIRECTORY_BASE] + '/guac_test.pyc')
 
@@ -50,22 +49,11 @@ def generate_passwords():
     mysql_root_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).strip()
     mysql_user_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).strip()
 
-    # with open(directories[settings.DIRECTORY_BASE] + '/generated_files/root_pass', 'w') as file:
-    #    file.write(mysql_root_password)
-
-    # os.chmod(directories[settings.DIRECTORY_BASE] + '/generated_files/root_pass', 0o600)
-
-    # with open(directories[settings.DIRECTORY_BASE] + '/generated_files/user_pass', 'w') as file:
-    #    file.write(mysql_user_password)
-
-    # os.chmod(directories[settings.DIRECTORY_BASE] + '/generated_files/user_pass', 0o600)
-
-    return mysql_root_password, mysql_user_password
+    return mysql_root_password.decode("utf-8"), mysql_user_password.decode("utf-8")
 
 
 # Generates guacamole.properties file
 def generate_guac_properties(mysql_user_password, directories):
-
     with open(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties', 'w') as file:
         # Values for guacd
         guacd_values = (
@@ -94,7 +82,7 @@ def generate_guac_properties(mysql_user_password, directories):
 def remove_containers():
     # Remove all running/stopped containers
     sql_container_id = subprocess.check_output(["docker", "ps", "--all", "--quiet",
-                                                "--filter", "name="+settings.SQL_CONTAINER_NAME]).strip()
+                                                "--filter", "name=" + settings.SQL_CONTAINER_NAME]).strip()
     guacamole_container_id = subprocess.check_output(["docker", "ps", "--all", "--quiet",
                                                       "--filter", "name=" + settings.GUACAMOLE_CONTAINER_NAME]).strip()
 
@@ -197,6 +185,7 @@ def main():
     build_guacamole_image(directories)
     build_guacamole_container(docker_network_name)
     clean_directory_structure(directories)
+
 
 if __name__ == '__main__':
     main()

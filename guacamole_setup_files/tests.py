@@ -1,8 +1,11 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
 
 import os
-import urllib2
+from urllib.request import urlopen
+from urllib.error import HTTPError
 import sys
+
+import requests
 
 import settings
 
@@ -11,7 +14,7 @@ import settings
 def check_directories_files(directories):
     print("Checking if all the required files exist")
     success = True
-    for _, directory in directories.iteritems():
+    for _, directory in directories.items():
         if not os.path.exists(directory):
             print("Error. The folder " + directory + ' is missing')
             success = False
@@ -36,16 +39,29 @@ def check_directories_files(directories):
 
 
 def url_exists(url):
-    request = urllib2.Request(url)
-    request.get_method = lambda: 'HEAD'
+
     try:
-        response = urllib2.urlopen(url)
-        if response.getcode() is 200:
-            return True
-        else:
-            return False
-    except urllib2.HTTPError:
+        response_code = requests.head(url).status_code
+    except requests.ConnectionError:
+        print("[Error] There were connection problems.")
         return False
+    except requests.HTTPError:
+        print("[Error] Http Error.")
+        return False
+    except requests.Timeout:
+        print("[Error] Timeout Occurred.")
+        return False
+    except requests.TooManyRedirects:
+        print("[Error] Too many redirects")
+        return False
+    except requests.RequestException:
+        print("[Error] Generic exception")
+        return False
+
+    if response_code is 200:
+        return True
+
+    return False
 
 
 # This function is used to check if all the links specified in the Dockerfile(s) are valid.

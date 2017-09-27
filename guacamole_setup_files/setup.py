@@ -37,11 +37,11 @@ def create_directory_structure(directories):
 
 # Cleans up after the code finishes executing
 def clean_directory_structure(directories):
-    if os.path.isfile(directories[settings.DIRECTORY_BASE] + '/guac_test.pyc'):
-        os.remove(directories[settings.DIRECTORY_BASE] + '/guac_test.pyc')
+    if os.path.isfile(directories[settings.DIRECTORY_BASE] + '/tests.pyc'):
+        os.remove(directories[settings.DIRECTORY_BASE] + '/tests.pyc')
 
-    if os.path.isfile(directories[settings.DIRECTORY_BASE] + '/guac_settings.pyc'):
-        os.remove(directories[settings.DIRECTORY_BASE] + '/guac_settings.pyc')
+    if os.path.isfile(directories[settings.DIRECTORY_BASE] + '/settings.pyc'):
+        os.remove(directories[settings.DIRECTORY_BASE] + '/settings.pyc')
 
 
 # A function which uses the openssl package in the operating system to generate mysql passwords

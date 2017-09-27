@@ -9,6 +9,12 @@ import time
 
 DOMAIN_NAME = 'mini-dmz.dynv6.net'
 
+
+def file_directory():
+    path = os.path.dirname(os.path.realpath(__file__))
+    return path
+
+
 # Obtain command line arguments
 def fetch_argument():
     parser = argparse.ArgumentParser(description='Sets up the Raspberry Pi')
@@ -59,31 +65,36 @@ def pi_configuration():
 
 
 # Create the firewall configuration for the raspberry pi
-def firewall_configuration():
+def firewall_configuration(base_path):
+
+    firewall_path = '/etc/firewall'
+    firewall_script_name = '/iptables.sh'
 
     # Creating the folder for our firewall script file
-    os.makedirs('/etc/firewall')
+    os.makedirs(firewall_path)
 
     # copying iptables rules to the new folder
-    shutil.copy2('iptables.rules', '/etc/firewall/iptables.sh')
+    shutil.copy2(base_path + firewall_script_name, firewall_path + firewall_script_name)
 
     # Changing file permissions
-    os.chmod('/etc/firewall/iptables.sh', 0o700)
+    os.chmod(firewall_path + firewall_script_name, 0o770)
+    subprocess.check_output(['chown', 'pi', firewall_path + firewall_script_name])
 
 
 # Create the firewall configuration for the raspberry pi
-def dns_configuration():
-    file_name = 'dynv6.sh'
-    path_name = '/etc/dns/dynv6.sh'
+def dns_configuration(base_path):
+    file_name = '/dynv6.sh'
+    path_name = '/etc/dns'
     # Creating the folder for our dns script file
     os.makedirs('/etc/dns')
     # copying dns script to the new folder
-    shutil.copy2(file_name, path_name)
+    shutil.copy2(base_path + file_name, path_name + file_name)
 
     # Changing file permissions
-    os.chmod(path_name, 0o700)
+    os.chmod(path_name + file_name, 0o770)
+    subprocess.check_output(['chown', 'pi', path_name + file_name])
 
-    with open('dynv6_token.txt','r') as file:
+    with open('dynv6_token.txt', 'r') as file:
         data = file.readlines()
 
     dns_token = None
@@ -93,19 +104,19 @@ def dns_configuration():
             dns_token = string.strip().split('=')[1].strip()
 
     if dns_token is None:
-        print(('[ERROR] The file {} does not have a valid dynv6_token.\n'
-            'Check out https://dynv6.com/docs/apis for token.\n'
+        print(('[ERROR] The file {} does not have a valid dynv6_token.\n' 
+               'Check out https://dynv6.com/docs/apis for token.\n'
                'Then token must be present in the file of the form "token = YOUR TOKEN"\n'
-             ).format(file_name))
+               ).format(file_name))
         sys.exit()
 
     subprocess.check_output(['sed', '-i', '--',
                              's|token="YOUR_DYNV6_TOKEN_HERE"|token="'+ dns_token + '"|g',
-                             path_name])
+                             path_name + file_name])
 
     subprocess.check_output(['sed', '-i', '--',
                              's|hostname="YOUR_DOMAIN_NAME_HERE"|hostname="' + DOMAIN_NAME + '"|g',
-                             path_name])
+                             path_name + file_name])
 
 
 # Create Wifi configuration for connecting to IU Secure network
@@ -169,9 +180,10 @@ def clean_up_setup():
 
 if __name__ == '__main__':
     username, password = fetch_argument()
+    base_directory = file_directory()
     pi_configuration()
-    firewall_configuration()
+    firewall_configuration(base_directory)
     wifi_configuration(username, password)
-    dns_configuration()
+    dns_configuration(base_directory)
     ethernet_configuration()
     clean_up_setup()

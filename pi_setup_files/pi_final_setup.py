@@ -89,14 +89,17 @@ def dyn_dns_configuration(dyn_username, dyn_password):
 def reverse_proxy_configuration():
     print("Creating the Reverse Proxy Configuration")
 
+    # The first proxy pass MUST be to websocket tunnel.
+    # If the first proxy pass is for just guacamole connection defaults to HTTP Tunnel
+    # and causes degraded performance, file transfer breaks.
     proxy_config = (
-        '\n\tProxyPass /guacamole/ http://{}:8080/guacamole/ flushpackets=on\n'
-        '\tProxyPassReverse /guacamole/ http://{}:8080/guacamole/\n'
-        '\tProxyPass /guacamole/websocket-tunnel ws://{}:8080/guacamole/websocket-tunnel\n'
-        '\tProxyPassReverse /guacamole/websocket-tunnel ws://{}:8080/guacamole/websocket-tunnel\n\n'
+        '\n\tProxyPass /guacamole/websocket-tunnel ws://{}:8080/guacamole/websocket-tunnel \n'
+        '\tProxyPassReverse /guacamole/websocket-tunnel ws://{}:8080/guacamole/websocket-tunnel \n\n'
+        '\tProxyPass /guacamole/ http://{}:8080/guacamole/ flushpackets=on \n'
+        '\tProxyPassReverse /guacamole/ http://{}:8080/guacamole/ \n\n'
     ).format(DOMAIN_NAME,  DOMAIN_NAME, DOMAIN_NAME, DOMAIN_NAME)
 
-    subprocess.check_output(['a2enmod','proxy_http'])
+    subprocess.check_output(['a2enmod', 'proxy_http'])
     subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
 
     contents = None

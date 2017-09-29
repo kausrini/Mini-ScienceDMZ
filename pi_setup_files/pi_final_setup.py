@@ -5,9 +5,9 @@ import subprocess
 import getpass
 import time
 import os
+import sys
 
-
-DOMAIN_NAME = 'mini-dmz.dynv6.net'
+DOMAIN_NAME = 'mini-science-dmz.dynv6.net'
 # The following email address can be used to recover Server Certificate key
 EMAIL_ADDRESS = 'kausrini@iu.edu'
 
@@ -104,10 +104,12 @@ def reverse_proxy_configuration():
     subprocess.check_output(['a2enmod', 'proxy_http'])
     subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
 
-    contents = None
-
     with open('/etc/apache2/sites-enabled/000-default-le-ssl.conf', 'r') as file:
         contents = file.readlines()
+
+    if len(contents) == 0:
+        print('[ERROR]The /etc/apache2/sites-enabled/000-default-le-ssl.conf file has no contents')
+        sys.exit()
 
     with open('/etc/apache2/sites-enabled/000-default-le-ssl.conf', 'w') as file:
         for line in contents:
@@ -123,7 +125,7 @@ def ssl_configuration():
 
     print('Setting up HTTPS support for our website')
     subprocess.check_output(['certbot', '-n', '--apache',
-                             '-d', 'mini-dmz.dynv6.net',
+                             '-d', DOMAIN_NAME,
                              '--redirect', '--agree-tos',
                              '--email', EMAIL_ADDRESS])
 
@@ -142,8 +144,8 @@ def guacamole_configuration():
     path = '/home/pi/minidmz'
     git_command = 'git clone https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
     print('Fetching the guacamole setup files from git repository')
-    subprocess.call(['runuser', '-l', 'pi', '-c', git_command])
-    subprocess.call(['chmod', '774', path + '/guacamole_setup_files/*.py'])
+    subprocess.check_output(['runuser', '-l', 'pi', '-c', git_command])
+    subprocess.check_output(['chmod', '774', path + '/guacamole_setup_files/setup.py'])
 
 
 def setup_cronjobs():

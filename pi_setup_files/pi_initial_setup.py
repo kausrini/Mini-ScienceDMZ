@@ -6,8 +6,9 @@ import os
 import shutil
 import subprocess
 import time
+import sys
 
-DOMAIN_NAME = 'mini-dmz.dynv6.net'
+DOMAIN_NAME = 'mini-science-dmz.dynv6.net'
 
 
 def file_directory():
@@ -66,7 +67,7 @@ def pi_configuration():
 
 # Create the firewall configuration for the raspberry pi
 def firewall_configuration(base_path):
-
+    print('Setting up the firewall configuration')
     firewall_path = '/etc/firewall'
     firewall_script_name = '/iptables.sh'
 
@@ -83,8 +84,10 @@ def firewall_configuration(base_path):
 
 # Create the firewall configuration for the raspberry pi
 def dns_configuration(base_path):
+    print('Setting up the dynamic dns configuration')
     file_name = '/dynv6.sh'
     path_name = '/etc/dns'
+    token_file_name = '/dynv6_token.txt'
     # Creating the folder for our dns script file
     os.makedirs('/etc/dns')
     # copying dns script to the new folder
@@ -94,7 +97,7 @@ def dns_configuration(base_path):
     os.chmod(path_name + file_name, 0o770)
     subprocess.check_output(['chown', 'pi', path_name + file_name])
 
-    with open('dynv6_token.txt', 'r') as file:
+    with open(base_path + token_file_name, 'r') as file:
         data = file.readlines()
 
     dns_token = None
@@ -103,7 +106,7 @@ def dns_configuration(base_path):
         if string.strip()[0] != '#' and 'token' in string.strip():
             dns_token = string.strip().split('=')[1].strip()
 
-    if dns_token is None:
+    if dns_token is None or dns_token is 'TOKEN_WILL_REPLACE_THIS':
         print(('[ERROR] The file {} does not have a valid dynv6_token.\n' 
                'Check out https://dynv6.com/docs/apis for token.\n'
                'Then token must be present in the file of the form "token = YOUR TOKEN"\n'
@@ -111,7 +114,7 @@ def dns_configuration(base_path):
         sys.exit()
 
     subprocess.check_output(['sed', '-i', '--',
-                             's|token="YOUR_DYNV6_TOKEN_HERE"|token="'+ dns_token + '"|g',
+                             's|token="YOUR_DYNV6_TOKEN_HERE"|token="' + dns_token + '"|g',
                              path_name + file_name])
 
     subprocess.check_output(['sed', '-i', '--',
@@ -124,7 +127,7 @@ def dns_configuration(base_path):
 # Adds script to register ip with dynv6 service
 # Todo: token for dynamic dns remove hardcoded value
 def wifi_configuration(username, password):
-
+    print('Setting up the wifi configuration')
     wpa_config = (
         '\tssid="IU Secure"\n'
         '\tkey_mgmt=WPA-EAP\n'

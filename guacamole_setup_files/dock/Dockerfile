@@ -44,11 +44,12 @@ RUN cd /tmp && \
 # Giving the tomcat group read access to the conf directory
 # Giving execute access to the conf directory itself
 # Making the tomcat user the owner of the following directories
-RUN cd /opt/tomcat && \
-	chgrp -R tomcat /opt/tomcat && \
-	chmod -R g+r conf && \
-	chmod g+x conf && \
-	chown -R tomcat webapps/ work/ temp/ logs/
+RUN rm -rf /opt/tomcat/webapps/* && \
+	chown -R tomcat:tomcat /opt/tomcat && \
+	chmod -R 400 /opt/tomcat/conf && \
+	chmod -R 760 /opt/tomcat/temp && \
+	chmod -R 730 /opt/tomcat/logs
+	
 
 
 #Installing Guacamole Prerequisites

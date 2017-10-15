@@ -4,7 +4,6 @@ import argparse
 import os
 import subprocess
 import sys
-import string
 from time import sleep
 
 from tests import run_tests
@@ -119,25 +118,25 @@ def build_sql_image(directories):
 
 # Create a custom network for our containers
 def create_docker_network():
-    network_name = 'guacamole_network'
+    docker_network_name = 'guacamole_network'
     network_id = subprocess.check_output(['docker', 'network', 'ls', '--filter',
-                                          'name={}'.format(network_name), '-q']
+                                          'name={}'.format(docker_network_name), '-q']
                                          ).strip()
 
     if len(network_id) == 0:
-        print('Creating a new docker network {} for our containers'.format(network_name))
-        subprocess.check_output(['docker', 'network', 'create', '--driver', 'bridge', network_name])
+        print('Creating a new docker network {} for our containers'.format(docker_network_name))
+        subprocess.check_output(['docker', 'network', 'create', '--driver', 'bridge', docker_network_name])
     else:
-        print("Containers will be created on the docker network {}".format(network_name))
+        print("Containers will be created on the docker network {}".format(docker_network_name))
 
-    return network_name
+    return docker_network_name
 
 
 # Builds the sql container from the sql image
 def build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator):
     print("Creating the SQL container")
     subprocess.call(["docker", "run", "--network={}".format(docker_network_name), "--name", settings.SQL_CONTAINER_NAME,
-                     "-e", "MYSQL_ROOT_PASSWORD=" + mysql_root_password,
+                     "-e", "MYSQL_ROOT_PASSWORD={}".format(mysql_root_password),
                      "-d", settings.SQL_IMAGE_NAME])
     print("Waiting for 30 seconds to setup SQL container with Guacamole Scripts")
     sleep(30)
@@ -165,8 +164,9 @@ def build_guacamole_container(docker_network_name):
     print("Creating the Guacamole Container and linking to the SQL container")
     subprocess.call(["docker", "run", "--network={}".format(docker_network_name),
                      "--name", settings.GUACAMOLE_CONTAINER_NAME,
-                     "-p", "8080:8080",
+                     "-p", "127.0.0.1:8080:8080",
                      "-d", "-t", settings.GUACAMOLE_IMAGE_NAME])
+
     print("Guacamole container successfully created and linked to SQL Container")
 
 

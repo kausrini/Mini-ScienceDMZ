@@ -9,6 +9,8 @@ from time import sleep
 from tests import run_tests
 import settings
 
+DOCKER_MYSQL_VOLUME = 'sql_volume'
+
 
 # Obtain command line arguments
 def fetch_argument():
@@ -30,8 +32,8 @@ def create_directory_structure(directories):
               ).format(directories[settings.DIRECTORY_BASE]))
         sys.exit()
 
-        # if not os.path.exists(directories[settings.DIRECTORY_BASE] + '/generated_files/'):
-        #    os.makedirs(directories[settings.DIRECTORY_BASE] + '/generated_files/')
+    if not os.path.exists(directories[settings.DIRECTORY_GENERATED_FILES]):
+        os.makedirs(directories[settings.DIRECTORY_GENERATED_FILES])
 
 
 # Cleans up after the code finishes executing
@@ -44,11 +46,23 @@ def clean_directory_structure(directories):
 
 
 # A function which uses the openssl package in the operating system to generate mysql passwords
-def generate_passwords():
-    mysql_root_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).strip()
-    mysql_user_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).strip()
+def generate_passwords(generate, directories):
+    if not generate:
+        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 'r') as file:
+            mysql_root_password = file.read()
+        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 'r') as file:
+            mysql_user_password = file.read()
+    else:
+        mysql_root_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).decode("utf-8").strip()
+        mysql_user_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).decode("utf-8").strip()
+        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 'w') as file:
+            file.write(mysql_root_password)
+        os.chmod(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 0o440)
+        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 'w') as file:
+            file.write(mysql_user_password)
+        os.chmod(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 0o440)
 
-    return mysql_root_password.decode("utf-8"), mysql_user_password.decode("utf-8")
+    return mysql_root_password, mysql_user_password
 
 
 # Generates guacamole.properties file
@@ -133,11 +147,29 @@ def create_docker_network():
 
 
 # Builds the sql container from the sql image
-def build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator):
+def build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator, new_database):
+    if new_database:
+        print('Creating docker volume {} for mysql'.format(DOCKER_MYSQL_VOLUME))
+        subprocess.check_output(['docker', 'volume', 'create', DOCKER_MYSQL_VOLUME])
+
     print("Creating the SQL container")
-    subprocess.call(["docker", "run", "--network={}".format(docker_network_name), "--name", settings.SQL_CONTAINER_NAME,
-                     "-e", "MYSQL_ROOT_PASSWORD={}".format(mysql_root_password),
-                     "-d", settings.SQL_IMAGE_NAME])
+    call_arguments = ["docker", "run", "--network={}".format(docker_network_name),
+                      "--name", settings.SQL_CONTAINER_NAME,
+                      "-v", "{}:/var/lib/mysql".format(DOCKER_MYSQL_VOLUME)
+                      ]
+
+    # Need to send MYSQL Root Password if container created for the first time.
+    if new_database:
+        call_arguments = call_arguments + ["-e", "MYSQL_ROOT_PASSWORD={}".format(mysql_root_password)]
+
+    call_arguments = call_arguments + ["-d", settings.SQL_IMAGE_NAME]
+
+    subprocess.call(call_arguments)
+
+    if not new_database:
+        print("SQL Container successfully created!")
+        return
+
     print("Waiting for 30 seconds to setup SQL container with Guacamole Scripts")
     sleep(30)
 
@@ -170,18 +202,46 @@ def build_guacamole_container(docker_network_name):
     print("Guacamole container successfully created and linked to SQL Container")
 
 
+# Method checks if the docker volume for mysql exists
+def mysql_volume_exists():
+    existing_volumes = subprocess.check_output(['docker', 'volume', 'ls', '-q']).decode("utf-8")
+    if DOCKER_MYSQL_VOLUME in existing_volumes:
+        print('Mysql will be mounted on the existing docker volume {}'.format(DOCKER_MYSQL_VOLUME))
+        return True
+
+    return False
+
+
+# Checks if previous instances of sql passwords exist
+def sql_passwords_exist(directories):
+    if os.path.isfile(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass') and os.path.isfile(
+                    directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass'):
+        return True
+    return False
+
+def new_sql_database(directories):
+    if mysql_volume_exists:
+        if sql_passwords_exist(directories):
+            print('Existing User configuration detected. The administrator provided will be discarded')
+            return False
+        subprocess.check_output(['docker', 'volume', 'rm', DOCKER_MYSQL_VOLUME])
+
+    return True
+
+
 def main():
-    administrator = fetch_argument()
-    run_tests()
     directories = settings.fetch_file_directories()
     create_directory_structure(directories)
-    mysql_root_password, mysql_user_password = generate_passwords()
+    administrator = fetch_argument()
+    run_tests()
     remove_containers()
     remove_images()
+    new_database = new_sql_database(directories)
+    mysql_root_password, mysql_user_password = generate_passwords(new_database, directories)
     generate_guac_properties(mysql_user_password, directories)
     docker_network_name = create_docker_network()
     build_sql_image(directories)
-    build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator)
+    build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator, new_database)
     build_guacamole_image(directories)
     build_guacamole_container(docker_network_name)
     clean_directory_structure(directories)

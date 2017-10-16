@@ -15,6 +15,7 @@ FILE_NAME = 'administrator.txt'
 DIRECTORY_BASE = 'base'
 DIRECTORY_DATABASE = 'database'
 DIRECTORY_GUACAMOLE = 'guacamole'
+DIRECTORY_GENERATED_FILES = 'generated_files'
 
 # CAS Extension parameters for Guacamole
 CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
@@ -32,6 +33,7 @@ def fetch_file_directories():
     directories = {
         DIRECTORY_BASE : base_directory,
         DIRECTORY_DATABASE : base_directory + '/db',
-        DIRECTORY_GUACAMOLE : base_directory + '/dock'
+        DIRECTORY_GUACAMOLE : base_directory + '/dock',
+        DIRECTORY_GENERATED_FILES : base_directory + '/generated_files'
     }
     return directories

@@ -11,29 +11,6 @@ DOMAIN_NAME = 'mini-science-dmz.dynv6.net'
 # The following email address can be used to recover Server Certificate key
 EMAIL_ADDRESS = 'kausrini@iu.edu'
 
-
-# Obtain command line arguments
-def fetch_argument():
-    parser = argparse.ArgumentParser(description='Sets up the Raspberry Pi')
-    parser.add_argument('-u', '--username',
-                        help='DynDNS Username to connect to the Dyn Dns network',
-                        required=True
-                        )
-
-    dyn_username = parser.parse_args().username
-
-    while True:
-        dyn_password = getpass.getpass('DynDNS Password : ')
-        verify_dyn_password = getpass.getpass('Re-enter DynDNS Password : ')
-
-        if dyn_password == verify_dyn_password:
-            break
-        else:
-            print("[Error] The passwords do not match. Please enter again.")
-
-    return dyn_username, dyn_password
-
-
 # Installs all required packages for our application
 def install_packages():
     packages = ['dnsmasq', 'git', 'apache2', 'python-certbot-apache', 'python3-requests']
@@ -70,25 +47,8 @@ def dhcp_server_configuration():
     print('Restarting the dhcp server service')
     subprocess.check_output(['service', 'dnsmasq', 'restart'])
 
-
-# Creating the Dyn Dns configuration for dynamic DNS
-def dyn_dns_configuration(dyn_username, dyn_password):
-    dyn_dns_config = (
-        "\nprotocol=dyndns2\n"
-        "use=web, web=checkip.dyndns.com, web-skip='IP Address'\n"
-        "server=members.dyndns.org\n"
-        "login={}\n"
-        "password={}\n"
-        "poc1.dyndns-at-work.com\n"
-    ).format(dyn_username, dyn_password)
-
-    print('Adding the Dynamic DNS configuration to /etc/ddclient.conf file')
-    with open('/etc/ddclient.conf', 'w') as file:
-        file.write(dyn_dns_config)
-
-
 # Creating configuration to proxy requests to the tomcat container
-def reverse_proxy_configuration():
+def apache_configuration():
     print("Creating the Reverse Proxy Configuration")
 
     # The first proxy pass MUST be to websocket tunnel.
@@ -96,14 +56,48 @@ def reverse_proxy_configuration():
     # and causes degraded performance, file transfer breaks.
     # Note that proxy is to localhost port 8080. Hence container port 8080 should be binded to localhost:8080
     proxy_config = (
-        '\n\tProxyPass /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel \n'
-        '\tProxyPassReverse /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel \n\n'
-        '\tProxyPass /guacamole/ http://127.0.0.1:8080/guacamole/ flushpackets=on \n'
-        '\tProxyPassReverse /guacamole/ http://127.0.0.1:8080/guacamole/ \n\n'
+        '\n\n\t# Proxy configuration'
+        '\n\tProxyPass /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel'
+        '\n\tProxyPassReverse /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel'
+        '\n\n\tProxyPass /guacamole/ http://127.0.0.1:8080/guacamole/ flushpackets=on'
+        '\n\tProxyPassReverse /guacamole/ http://127.0.0.1:8080/guacamole/'
     )
 
+    # OSCP stapling configuration for our server
+    ocsp_stapling_config = (
+        '\n\n\t#OSCP Stapling Configuration'
+        '\n\tSSLUseStapling on'
+        '\n\tSSLStaplingReturnResponderErrors off'
+        '\n\tSSLStaplingResponderTimeout 5'
+        '\n\n'
+    )
+    ssl_stapling_cache = (
+        '\n\n\t# The SSL Stapling Cache global parameter'
+        '\n\tSSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(128000)'
+        '\n'
+    )
+
+    # HSTS configuration
+    hsts_config = (
+        '\n\n\t# HSTS for 1 year including the subdomains'
+        '\n\tHeader always set Strict-Transport-Security "max-age=31536000; includeSubDomains"'
+        '\n'
+    )
+
+    # Hiding apache web server signature
+    apache_signature_config = (
+        '\n\n# Hiding apache web server signature'
+        '\nServerSignature Off'
+        '\nServerTokens Prod'
+        '\n'
+    )
+
+    # For proxying
     subprocess.check_output(['a2enmod', 'proxy_http'])
     subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
+
+    # For enabling HSTS
+    subprocess.check_output(['a2enmod', 'headers'])
 
     with open('/etc/apache2/sites-enabled/000-default-le-ssl.conf', 'r') as file:
         contents = file.readlines()
@@ -116,11 +110,26 @@ def reverse_proxy_configuration():
         for line in contents:
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
-                file.write(proxy_config)
+                file.write(hsts_config + proxy_config + ocsp_stapling_config)
+
+    with open('/etc/apache2/mods-enabled/ssl.conf', 'r') as file:
+        contents = file.readlines()
+
+    if len(contents) == 0:
+        print('[ERROR]The /etc/apache2/mods-enabled/ssl.conf file has no contents')
+        sys.exit()
+
+    with open('/etc/apache2/mods-enabled/ssl.conf', 'w') as file:
+        for line in contents:
+            file.write(line)
+            if line.strip() == '<IfModule mod_ssl.c>':
+                file.write(ssl_stapling_cache)
+
+    with open('/etc/apache2/mods-enabled/ssl.conf', 'a') as file:
+        file.write(apache_signature_config)
 
 
 def ssl_configuration():
-
     # Update DNS Record before getting certificate
     subprocess.check_output('/etc/dns/dynv6.sh')
 
@@ -150,7 +159,6 @@ def guacamole_configuration():
 
 
 def setup_cronjobs():
-
     # Update dns after reboot.
     # Update dns every one hour.
     # Start docker containers on boot (Todo Python script for this with proper checks of existence of containers)
@@ -179,13 +187,11 @@ def clean_up_setup():
 
 
 if __name__ == '__main__':
-    #username, password = fetch_argument()
     install_packages()
     dhcp_server_configuration()
-    #dyn_dns_configuration(username, password)
     docker_install()
     guacamole_configuration()
     ssl_configuration()
-    reverse_proxy_configuration()
+    apache_configuration()
     setup_cronjobs()
     clean_up_setup()

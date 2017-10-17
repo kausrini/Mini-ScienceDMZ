@@ -86,11 +86,19 @@ def apache_configuration():
 
     # Hiding apache web server signature
     apache_signature_config = (
-        '\n\n# Hiding apache web server signature'
+        '\n\n\t# Hiding apache web server signature'
         '\nServerSignature Off'
         '\nServerTokens Prod'
         '\n'
     )
+
+    # Other headers
+    miscellaneous_headers = (
+        '\n\tHeader set X-Content-Type-Options nosniff'
+        '\n\tHeader always set X-Frame-Options "SAMEORIGIN"'
+        '\n\tHeader always set X-Xss-Protection "1; mode=block"'
+    )
+
 
     # For proxying
     subprocess.check_output(['a2enmod', 'proxy_http'])
@@ -110,7 +118,7 @@ def apache_configuration():
         for line in contents:
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
-                file.write(hsts_config + proxy_config + ocsp_stapling_config)
+                file.write(hsts_config + proxy_config + ocsp_stapling_config + miscellaneous_headers)
 
     with open('/etc/apache2/mods-enabled/ssl.conf', 'r') as file:
         contents = file.readlines()

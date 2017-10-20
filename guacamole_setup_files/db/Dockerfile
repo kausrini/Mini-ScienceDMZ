@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
 	curl 
 	
 COPY db_init_scripts.sh /docker-entrypoint-initdb.d/
+COPY ip_update.sh /docker-entrypoint-initdb.d/
 
 RUN curl -O http://apache.mirrors.lucidnetworks.net/incubator/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz \
 	&& tar -xzf guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz \
@@ -24,5 +25,8 @@ RUN curl -O http://apache.mirrors.lucidnetworks.net/incubator/guacamole/$GUACAMO
 	&& rm guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz \
 	&& rm -rf guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating
 
+	
 RUN chmod 700 /docker-entrypoint-initdb.d/db_init_scripts.sh
+
+RUN chmod 700 /docker-entrypoint-initdb.d/ip_update.sh
 

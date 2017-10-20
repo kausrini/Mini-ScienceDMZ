@@ -1,6 +1,7 @@
 # First argument is the mysql database root password
 # Second argument is the mysql user password
 # Third argument is the guacamole administrator Indiana University Username
+# Fourth argument is the ip address of equipment
 
 # Creates a MySQL user account to access the guacamole_db database
 mysql -u root -p$1 -Bse "CREATE DATABASE guacamole_db;"
@@ -17,7 +18,7 @@ cat /docker-entrypoint-initdb.d/*.sql | mysql -u root -p$1 guacamole_db
 mysql -u guacamole_user -p$2 guacamole_db -Bse "INSERT INTO guacamole_connection (connection_name, protocol) VALUES ('RDP_Connection', 'rdp');"
 # This sql statement SELECT connection_id FROM guacamole_connection WHERE connection_name = 'RDP_Connection' AND parent_id IS NULL;
 # provides the connection id needed for inserting values in the guacamole_connection_parameter table
-mysql -u guacamole_user -p$2 guacamole_db -Bse "INSERT INTO guacamole_connection_parameter VALUES ((SELECT connection_id FROM guacamole_connection WHERE connection_name = 'RDP_Connection' AND parent_id IS NULL), 'hostname', '192.168.0.7');"
+mysql -u guacamole_user -p$2 guacamole_db -Bse "INSERT INTO guacamole_connection_parameter VALUES ((SELECT connection_id FROM guacamole_connection WHERE connection_name = 'RDP_Connection' AND parent_id IS NULL), 'hostname', '$4');"
 mysql -u guacamole_user -p$2 guacamole_db -Bse "INSERT INTO guacamole_connection_parameter VALUES ((SELECT connection_id FROM guacamole_connection WHERE connection_name = 'RDP_Connection' AND parent_id IS NULL), 'port', '3389');"
 mysql -u guacamole_user -p$2 guacamole_db -Bse "INSERT INTO guacamole_connection_parameter VALUES ((SELECT connection_id FROM guacamole_connection WHERE connection_name = 'RDP_Connection' AND parent_id IS NULL), 'enable-drive', 'true');"
 mysql -u guacamole_user -p$2 guacamole_db -Bse "INSERT INTO guacamole_connection_parameter VALUES ((SELECT connection_id FROM guacamole_connection WHERE connection_name = 'RDP_Connection' AND parent_id IS NULL), 'drive-path', '/home/virtual_drive/');"

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-from urllib.request import urlopen
-from urllib.error import HTTPError
+import subprocess
 import sys
 
 import requests
@@ -31,11 +30,15 @@ def check_directories_files(directories):
         print('Error, the db_init_scripts.sh file is missing from the db folder')
         success = False
 
+    if not os.path.isfile(directories[settings.DIRECTORY_DATABASE] + '/ip_update.sh'):
+        print('Error, the ip_update.sh file is missing from the db folder')
+        success = False
+
     if not success:
         print("Fix the issues and re-run the application")
         sys.exit()
 
-    print("All required files are present")
+    print("[Success] All required files are present")
 
 
 def url_exists(url):
@@ -66,7 +69,7 @@ def url_exists(url):
 
 # This function is used to check if all the links specified in the Dockerfile(s) are valid.
 # Todo: create clear instructions to fix link related errors
-def check_dockerfile_links(base_directory):
+def check_dockerfile_links():
     success = True
     # Following links are present in the guacamole Dockerfile
     # The guacamole_jdbc link exists in both guacamole Dockerfile and database Dockerfile
@@ -131,13 +134,44 @@ def check_dockerfile_links(base_directory):
         print('Fix the above errors and re-run the application')
         sys.exit()
     else:
-        print('All links specified in the Dockerfiles are valid')
+        print('[Success] All links specified in the Dockerfiles are valid')
+
+
+# Checks if the windows system is connected to our PI and RDP port is open
+def check_rdp_connection():
+    print("Checking if the equipment is connected to raspberry Pi and RDP is enabled")
+    try:
+        with open('/var/lib/misc/dnsmasq.leases', 'r') as file:
+            dnsmasq_leases = file.read().strip()
+    except FileNotFoundError as error:
+        print("[Error] DNSmasq lease file not created yet. No leases issued yet? "
+              "\nCheck DNSmasq and if equipment connected")
+        sys.exit()
+
+    if dnsmasq_leases is "":
+        print("[Error] No lease Issued by dnsmasq"
+              "\nCheck DNSmasq and if equipment connected")
+        sys.exit()
+
+    dnsmasq_lease_ips = [x.split(' ')[2] for x in dnsmasq_leases.split('\n')]
+
+    nmap_call_arguments = ['nmap', '-Pn'] + dnsmasq_lease_ips + ['-p', '3389', '--open']
+    nmap_output = subprocess.check_output(nmap_call_arguments).decode("utf-8").strip()
+
+    if '3389/tcp open  ms-wbt-server' not in nmap_output:
+        print("[Error] RDP enabled device not connected to raspberry pi. "
+              "\nRDP may not be enabled or the equipment might not be connected."
+              "\nResolve issue and retry again")
+        sys.exit()
+
+    print("[Success] Equipment is connected to raspberry pi and RDP is enabled.")
 
 
 def run_tests():
     directories = settings.fetch_file_directories()
     check_directories_files(directories)
-    check_dockerfile_links(directories[settings.DIRECTORY_BASE])
+    check_dockerfile_links()
+    check_rdp_connection()
     print("All tests are complete and were successful")
 
 

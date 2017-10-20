@@ -146,8 +146,48 @@ def create_docker_network():
     return docker_network_name
 
 
+# Obtains the ip address of the equipment.
+def fetch_equipment_ip():
+    print('Fetching Equipment IP address')
+    try:
+        with open('/var/lib/misc/dnsmasq.leases', 'r') as file:
+            dnsmasq_leases = file.read().strip()
+    except FileNotFoundError as error:
+        print("[Error] DNSmasq lease file not created yet. No leases issued yet? "
+              "\nCheck DNSmasq and if equipment connected")
+        sys.exit()
+
+    if dnsmasq_leases is "":
+        print("[Error] No lease Issued by dnsmasq"
+              "\nCheck DNSmasq and if equipment connected")
+        sys.exit()
+
+    dnsmasq_lease_ips = [x.split(' ')[2] for x in dnsmasq_leases.split('\n')]
+
+    nmap_call_arguments = ['nmap', '-Pn'] + dnsmasq_lease_ips + ['-p', '3389', '--open']
+    nmap_output = subprocess.check_output(nmap_call_arguments).decode("utf-8").strip()
+    ip_address = None
+
+    if '3389/tcp open  ms-wbt-server' not in nmap_output:
+        print("[Error] RDP enabled device not connected to raspberry pi. Resolve issue and retry again")
+    else:
+        nmap_second_line = nmap_output.split("\n")[1]
+        ip_address = nmap_second_line[nmap_second_line.index('(') + 1 : nmap_second_line.index(')')].strip()
+
+    if ip_address is None:
+        print('Unable to retrieve IP address of equipment.Exiting Code.')
+        sys.exit()
+    else:
+        print ('Ip address of the equipment is {}'.format(ip_address))
+
+    return ip_address
+
+
 # Builds the sql container from the sql image
 def build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator, new_database):
+
+    ip_address = fetch_equipment_ip()
+
     if new_database:
         print('Creating docker volume {} for mysql'.format(DOCKER_MYSQL_VOLUME))
         subprocess.check_output(['docker', 'volume', 'create', DOCKER_MYSQL_VOLUME])
@@ -166,17 +206,21 @@ def build_sql_container(docker_network_name, mysql_root_password, mysql_user_pas
 
     subprocess.call(call_arguments)
 
-    if not new_database:
-        print("SQL Container successfully created!")
-        return
-
     print("Waiting for 30 seconds to setup SQL container with Guacamole Scripts")
     sleep(30)
+
+    # Need to update ip address of equipment to be sure
+    if not new_database:
+        print("Updating IP address of the equipment")
+        subprocess.call(["docker", "exec", "-it", settings.SQL_CONTAINER_NAME, "bash",
+                         "/docker-entrypoint-initdb.d/ip_update.sh", mysql_user_password, ip_address])
+        print("SQL Container successfully created!")
+        return
 
     # Run the initialization scripts for the database
     subprocess.call(["docker", "exec", "-it", settings.SQL_CONTAINER_NAME, "bash",
                      "/docker-entrypoint-initdb.d/db_init_scripts.sh",
-                     mysql_root_password, mysql_user_password, administrator])
+                     mysql_root_password, mysql_user_password, administrator, ip_address])
     print("SQL Container successfully created!")
 
 
@@ -218,6 +262,7 @@ def sql_passwords_exist(directories):
                     directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass'):
         return True
     return False
+
 
 def new_sql_database(directories):
     if mysql_volume_exists:

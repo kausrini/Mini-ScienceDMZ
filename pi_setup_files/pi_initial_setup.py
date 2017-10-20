@@ -166,7 +166,7 @@ def ethernet_configuration():
     ethernet_config = (
         '\nauto eth0\n'
         'iface eth0 inet static\n'
-        'address 192.168.0.1\n'
+        'address 192.168.7.1\n'
         'netmask 255.255.255.0\n'
     )
     print('Adding the scientific device connection configuration to /etc/network/interfaces file')

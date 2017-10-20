@@ -37,7 +37,7 @@ def install_packages():
 def dhcp_server_configuration():
     dhcp_config = (
         '\ninterface=eth0\n'
-        'dhcp-range=192.168.0.7,192.168.0.7,255.255.255.0,infinite\n'
+        'dhcp-range=192.168.7.2,192.168.7.254,255.255.255.0,12h\n'
     )
 
     print('Adding the raspberry pi dhcp server configuration to /etc/dnsmasq.conf file')

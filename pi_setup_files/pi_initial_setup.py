@@ -43,7 +43,13 @@ def pi_configuration():
 
     # Forcing user to change default pi password
     print('Please change the default Rapberry Pi password')
-    subprocess.check_output('passwd pi', shell=True)
+    while True:
+        try:
+            subprocess.check_output('passwd pi', shell=True)
+        except subprocess.CalledProcessError as error:
+            print("[ERROR] Please try again!")
+            continue
+        break
 
     # Pi for a headless application then you can reduce the memory split
     # between the GPU and the rest of the system down to 16mb

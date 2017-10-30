@@ -15,12 +15,18 @@ DOCKER_MYSQL_VOLUME = 'sql_volume'
 # Obtain command line arguments
 def fetch_argument():
     parser = argparse.ArgumentParser(description='Sets up the Guacamole Server')
+
+    parser.add_argument('-f', '--force',
+                        help='Forces creation of new instance of application. Removes old data.',
+                        action='store_true'
+                        )
+
     parser.add_argument('-u', '--username',
                         help='The IU username which acts as the Administrator for the Guacamole application',
                         required=True
                         )
     arguments = parser.parse_args()
-    return arguments.username
+    return arguments
 
 
 # Creates the initial directory structure
@@ -57,10 +63,10 @@ def generate_passwords(generate, directories):
         mysql_user_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).decode("utf-8").strip()
         with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 'w') as file:
             file.write(mysql_root_password)
-        os.chmod(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 0o440)
+        os.chmod(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 0o660)
         with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 'w') as file:
             file.write(mysql_user_password)
-        os.chmod(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 0o440)
+        os.chmod(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 0o660)
 
     return mysql_root_password, mysql_user_password
 
@@ -150,37 +156,43 @@ def create_docker_network():
 def fetch_equipment_ip():
     print('Fetching Equipment IP address')
     try:
-        with open('/var/lib/misc/dnsmasq.leases', 'r') as file:
-            dnsmasq_leases = file.read().strip()
+        with open('/var/lib/dhcp/dhcpd.leases', 'r') as file:
+            dhcpd_leases = file.read().strip()
     except FileNotFoundError as error:
         print("[Error] DNSmasq lease file not created yet. No leases issued yet? "
               "\nCheck DNSmasq and if equipment connected")
         sys.exit()
 
-    if dnsmasq_leases is "":
-        print("[Error] No lease Issued by dnsmasq"
-              "\nCheck DNSmasq and if equipment connected")
+    ip_address_list = []
+
+    for line in dhcpd_leases.split('\n'):
+        if 'lease ' in line and ' {' in line:
+            ip_lease_address = line[line.find('lease ') + 6: line.find(' {')]
+            if ip_lease_address not in ip_address_list:
+                ip_address_list.append(ip_lease_address)
+
+    if not ip_address_list:
+        print("[Error] No lease Issued by dhcp server."
+              "\nCheck dhcp server and if the equipment is connected")
         sys.exit()
 
-    dnsmasq_lease_ips = [x.split(' ')[2] for x in dnsmasq_leases.split('\n')]
-
-    nmap_call_arguments = ['nmap', '-Pn'] + dnsmasq_lease_ips + ['-p', '3389', '--open']
+    nmap_call_arguments = ['nmap', '-Pn'] + ip_address_list + ['-p', '3389', '--open']
     nmap_output = subprocess.check_output(nmap_call_arguments).decode("utf-8").strip()
-    ip_address = None
 
+    ip_address = None
     if '3389/tcp open  ms-wbt-server' not in nmap_output:
         print("[Error] RDP enabled device not connected to raspberry pi. Resolve issue and retry again")
     else:
-        nmap_second_line = nmap_output.split("\n")[1]
-        ip_address = nmap_second_line[nmap_second_line.index('(') + 1 : nmap_second_line.index(')')].strip()
+        nmap_second_line = nmap_output.split("\n")[1].strip()
+        ip_address = nmap_second_line.split(' ')[-1:]
 
-    if ip_address is None:
+    if not ip_address:
         print('Unable to retrieve IP address of equipment.Exiting Code.')
         sys.exit()
     else:
-        print ('Ip address of the equipment is {}'.format(ip_address))
+        print ('Ip address of the equipment is {}'.format(ip_address[0]))
 
-    return ip_address
+    return ip_address[0]
 
 
 # Builds the sql container from the sql image
@@ -264,9 +276,9 @@ def sql_passwords_exist(directories):
     return False
 
 
-def new_sql_database(directories):
-    if mysql_volume_exists:
-        if sql_passwords_exist(directories):
+def new_sql_database(directories, reset_database):
+    if mysql_volume_exists():
+        if sql_passwords_exist(directories) and not reset_database:
             print('Existing User configuration detected. The administrator provided will be discarded')
             return False
         subprocess.check_output(['docker', 'volume', 'rm', DOCKER_MYSQL_VOLUME])
@@ -277,11 +289,13 @@ def new_sql_database(directories):
 def main():
     directories = settings.fetch_file_directories()
     create_directory_structure(directories)
-    administrator = fetch_argument()
+    arguments = fetch_argument()
+    administrator = arguments.username
+    force = arguments.force
     run_tests()
     remove_containers()
     remove_images()
-    new_database = new_sql_database(directories)
+    new_database = new_sql_database(directories, force)
     mysql_root_password, mysql_user_password = generate_passwords(new_database, directories)
     generate_guac_properties(mysql_user_password, directories)
     docker_network_name = create_docker_network()

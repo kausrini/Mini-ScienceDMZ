@@ -141,21 +141,27 @@ def check_dockerfile_links():
 def check_rdp_connection():
     print("Checking if the equipment is connected to raspberry Pi and RDP is enabled")
     try:
-        with open('/var/lib/misc/dnsmasq.leases', 'r') as file:
-            dnsmasq_leases = file.read().strip()
+        with open('/var/lib/dhcp/dhcpd.leases', 'r') as file:
+            dhcpd_leases = file.read().strip()
     except FileNotFoundError as error:
         print("[Error] DNSmasq lease file not created yet. No leases issued yet? "
               "\nCheck DNSmasq and if equipment connected")
         sys.exit()
 
-    if dnsmasq_leases is "":
-        print("[Error] No lease Issued by dnsmasq"
-              "\nCheck DNSmasq and if equipment connected")
+    ip_address_list = []
+
+    for line in dhcpd_leases.split('\n'):
+        if 'lease ' in line and ' {' in line:
+            ip_address = line[line.find('lease ') + 6: line.find(' {')]
+            if ip_address not in ip_address_list:
+                ip_address_list.append(ip_address)
+
+    if not ip_address_list:
+        print("[Error] No lease Issued by dhcp server."
+              "\nCheck dhcp server and if the equipment is connected")
         sys.exit()
 
-    dnsmasq_lease_ips = [x.split(' ')[2] for x in dnsmasq_leases.split('\n')]
-
-    nmap_call_arguments = ['nmap', '-Pn'] + dnsmasq_lease_ips + ['-p', '3389', '--open']
+    nmap_call_arguments = ['nmap', '-Pn'] + ip_address_list + ['-p', '3389', '--open']
     nmap_output = subprocess.check_output(nmap_call_arguments).decode("utf-8").strip()
 
     if '3389/tcp open  ms-wbt-server' not in nmap_output:

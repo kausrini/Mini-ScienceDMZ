@@ -8,7 +8,7 @@ import subprocess
 import time
 import sys
 
-DOMAIN_NAME = 'mini-science-dmz.dynv6.net'
+DOMAIN_NAME = 'mini-dmz-developer.dynv6.net'
 
 
 def file_directory():
@@ -146,10 +146,9 @@ def wifi_configuration(username, password):
         '\nauto wlan0\n'
         'allow-hotplug wlan0\n'
         'iface wlan0 inet dhcp\n'
-        '\tpre-up wpa_supplicant -B -Dwext -i wlan0 -c/etc/wpa_supplicant/wpa_supplicant.conf\n'
+        '\twpa-conf /etc/wpa_supplicant/wpa_supplicant.conf\n'
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
         '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
-        '\tpost-down killall -q wpa_supplicant\n'
     )
     print('Adding WPA configuration to /etc/wpa_supplicant/wpa_supplicant.conf.conf file')
     with open('/etc/wpa_supplicant/wpa_supplicant.conf', 'a') as file:
@@ -166,8 +165,9 @@ def ethernet_configuration():
     ethernet_config = (
         '\nauto eth0\n'
         'iface eth0 inet static\n'
-        'address 192.168.7.1\n'
-        'netmask 255.255.255.0\n'
+        '\taddress 192.168.7.1\n'
+        '\tnetmask 255.255.255.0\n'
+        '\tnetwork 192.168.7.0'
     )
     print('Adding the scientific device connection configuration to /etc/network/interfaces file')
     with open('/etc/network/interfaces', 'a') as file:

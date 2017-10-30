@@ -6,6 +6,8 @@ TOMCAT_VERSION = '8.5.23'
 GUACAMOLE_VERSION = '0.9.13'
 MYSQL_CONNECTOR_VERSION = '5.1.44'
 
+DOMAIN_NAME = 'mini-dmz-developer.dynv6.net'
+
 SQL_CONTAINER_NAME = 'sql_container'
 GUACAMOLE_CONTAINER_NAME = 'guacamole_container'
 SQL_IMAGE_NAME = 'sql_image'
@@ -19,7 +21,7 @@ DIRECTORY_GENERATED_FILES = 'generated_files'
 
 # CAS Extension parameters for Guacamole
 CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
-CAS_REDIRECT_URI = 'https://mini-science-dmz.dynv6.net/guacamole/'
+CAS_REDIRECT_URI = 'https://{}/guacamole/'.format(DOMAIN_NAME)
 # Note : CAS_REDIRECT_URI needs to be changed to http instead of https and also port 8080 need to be there
 # if proxy server not configured.
 

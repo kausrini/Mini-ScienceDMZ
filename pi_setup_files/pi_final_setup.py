@@ -57,22 +57,62 @@ def isc_dhcp_server_configuration():
 
 
 # Creating configuration to proxy requests to the tomcat container
-def reverse_proxy_configuration():
-    print("Creating the Reverse Proxy Configuration")
+def apache_configuration():
+    print("Creating the Reverse Proxy Configuration and securing Apache server")
 
     # The first proxy pass MUST be to websocket tunnel.
     # If the first proxy pass is for just guacamole connection defaults to HTTP Tunnel
     # and causes degraded performance, file transfer breaks.
     # Note that proxy is to localhost port 8080. Hence container port 8080 should be binded to localhost:8080
     proxy_config = (
-        '\n\tProxyPass /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel \n'
-        '\tProxyPassReverse /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel \n\n'
-        '\tProxyPass /guacamole/ http://127.0.0.1:8080/guacamole/ flushpackets=on \n'
-        '\tProxyPassReverse /guacamole/ http://127.0.0.1:8080/guacamole/ \n\n'
+        '\n\n\t# Proxy configuration'
+        '\n\tProxyPass /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel'
+        '\n\tProxyPassReverse /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel'
+        '\n\n\tProxyPass /guacamole/ http://127.0.0.1:8080/guacamole/ flushpackets=on'
+        '\n\tProxyPassReverse /guacamole/ http://127.0.0.1:8080/guacamole/'
     )
 
+    # OSCP stapling configuration for our server
+    ocsp_stapling_config = (
+        '\n\n\t#OSCP Stapling Configuration'
+        '\n\tSSLUseStapling on'
+        '\n\tSSLStaplingReturnResponderErrors off'
+        '\n\tSSLStaplingResponderTimeout 5'
+        '\n\n'
+    )
+    ssl_stapling_cache = (
+        '\n\n\t# The SSL Stapling Cache global parameter'
+        '\n\tSSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(128000)'
+        '\n'
+    )
+
+    # HSTS configuration
+    hsts_config = (
+        '\n\n\t# HSTS for 1 year including the subdomains'
+        '\n\tHeader always set Strict-Transport-Security "max-age=31536000; includeSubDomains"'
+        '\n'
+    )
+
+    # Hiding apache web server signature
+    apache_signature_config = (
+        '\n\n\t# Hiding apache web server signature'
+        '\nServerSignature Off'
+        '\nServerTokens Prod'
+        '\n'
+    )
+
+    # Other headers
+    miscellaneous_headers = (
+        '\n\tHeader set X-Content-Type-Options nosniff'
+        '\n\tHeader always set X-Frame-Options "SAMEORIGIN"'
+        '\n\tHeader always set X-Xss-Protection "1; mode=block"'
+    )
+
+    # For proxying
     subprocess.check_output(['a2enmod', 'proxy_http'])
     subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
+    # For enabling HSTS
+    subprocess.check_output(['a2enmod', 'headers'])
 
     with open('/etc/apache2/sites-enabled/000-default-le-ssl.conf', 'r') as file:
         contents = file.readlines()
@@ -85,7 +125,24 @@ def reverse_proxy_configuration():
         for line in contents:
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
-                file.write(proxy_config)
+                file.write(hsts_config + proxy_config + ocsp_stapling_config + miscellaneous_headers)
+
+    with open('/etc/apache2/mods-enabled/ssl.conf', 'r') as file:
+        contents = file.readlines()
+
+    if len(contents) == 0:
+        print('[ERROR]The /etc/apache2/mods-enabled/ssl.conf file has no contents')
+        sys.exit()
+
+    with open('/etc/apache2/mods-enabled/ssl.conf', 'w') as file:
+        for line in contents:
+            file.write(line)
+            if line.strip() == '<IfModule mod_ssl.c>':
+                file.write(ssl_stapling_cache)
+
+    with open('/etc/apache2/mods-enabled/ssl.conf', 'a') as file:
+        file.write(apache_signature_config)
+
 
 
 def ssl_configuration():
@@ -153,6 +210,6 @@ if __name__ == '__main__':
     docker_install()
     guacamole_configuration()
     ssl_configuration()
-    reverse_proxy_configuration()
+    apache_configuration()
     setup_cronjobs()
     clean_up_setup()

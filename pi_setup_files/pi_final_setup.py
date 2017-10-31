@@ -7,9 +7,24 @@ import time
 import os
 import sys
 
-DOMAIN_NAME = 'mini-dmz-developer.dynv6.net'
-# The following email address can be used to recover Server Certificate key
-EMAIL_ADDRESS = 'kausrini@iu.edu'
+import pi_settings as settings
+
+# Fetches arguments from the user
+def fetch_arguments():
+    parser = argparse.ArgumentParser(description='Raspberry Pi setup part-2')
+
+    parser.add_argument('-e', '--email',
+                        help='This email address will be used to recover server certificate key using letsencrypt',
+                        required=True
+                        )
+
+    parser.add_argument('-t', '--testing',
+                        help='Testing mode. Obtains invalid server certificate from letsencrypt',
+                        action='store_true'
+                        )
+
+    arguments = parser.parse_args()
+    return arguments
 
 
 # Installs all required packages for our application
@@ -143,18 +158,27 @@ def apache_configuration():
     with open('/etc/apache2/mods-enabled/ssl.conf', 'a') as file:
         file.write(apache_signature_config)
 
+    # Disabling directory browsing
+    subprocess.check_output(['sed', '-i', '--',
+                             's|Options Indexes FollowSymLinks|Options FollowSymLinks|g',
+                             '/etc/apache2/apache2.conf'])
 
 
-def ssl_configuration():
+# Sets up https configuration for apache
+def tls_configuration(email_address, test):
 
     # Update DNS Record before getting certificate
     subprocess.check_output('/etc/dns/dynv6.sh')
 
+    certbot_arguments = ['certbot', '-n', '--apache', '-d', settings.DOMAIN_NAME]
+
+    if test:
+        certbot_arguments.append('--staging')
+
+    certbot_arguments.extend(['--redirect', '--agree-tos', '--email', email_address])
+
     print('Setting up HTTPS support for our website')
-    subprocess.check_output(['certbot', '-n', '--apache',
-                             '-d', DOMAIN_NAME,
-                             '--redirect', '--staging', '--agree-tos',
-                             '--email', EMAIL_ADDRESS])
+    subprocess.check_output(certbot_arguments)
 
 
 # Installing docker
@@ -205,11 +229,14 @@ def clean_up_setup():
 
 
 if __name__ == '__main__':
+    arguments = fetch_arguments()
+    email = arguments.email
+    testing = arguments.testing
     install_packages()
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
-    ssl_configuration()
+    tls_configuration(email,testing)
     apache_configuration()
     setup_cronjobs()
     clean_up_setup()

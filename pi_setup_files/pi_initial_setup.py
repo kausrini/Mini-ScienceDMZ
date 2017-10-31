@@ -8,9 +8,10 @@ import subprocess
 import time
 import sys
 
-DOMAIN_NAME = 'mini-dmz-developer.dynv6.net'
+import pi_settings as settings
 
 
+# Obtain absolute location of this python file
 def file_directory():
     path = os.path.dirname(os.path.realpath(__file__))
     return path
@@ -18,7 +19,7 @@ def file_directory():
 
 # Obtain command line arguments
 def fetch_argument():
-    parser = argparse.ArgumentParser(description='Sets up the Raspberry Pi')
+    parser = argparse.ArgumentParser(description='Raspberry Pi setup part-1')
     parser.add_argument('-u', '--username',
                         help='IU Username to connect to the IU Wireless network',
                         required=True
@@ -28,7 +29,7 @@ def fetch_argument():
     while True:
 
         iu_password = getpass.getpass('Enter IU Password : ')
-        iu_verify_password =  getpass.getpass('Re-enter IU Password : ')
+        iu_verify_password = getpass.getpass('Re-enter IU Password : ')
 
         if iu_password == iu_verify_password:
             break
@@ -88,7 +89,7 @@ def firewall_configuration(base_path):
     subprocess.check_output(['chown', 'pi', firewall_path + firewall_script_name])
 
 
-# Create the firewall configuration for the raspberry pi
+# Create the dynamic dns configuration for the raspberry pi
 def dns_configuration(base_path):
     print('Setting up the dynamic dns configuration')
     file_name = '/dynv6.sh'
@@ -124,7 +125,7 @@ def dns_configuration(base_path):
                              path_name + file_name])
 
     subprocess.check_output(['sed', '-i', '--',
-                             's|hostname="YOUR_DOMAIN_NAME_HERE"|hostname="' + DOMAIN_NAME + '"|g',
+                             's|hostname="YOUR_DOMAIN_NAME_HERE"|hostname="' + settings.DOMAIN_NAME + '"|g',
                              path_name + file_name])
 
 

@@ -163,6 +163,13 @@ def apache_configuration():
                              's|Options Indexes FollowSymLinks|Options FollowSymLinks|g',
                              '/etc/apache2/apache2.conf'])
 
+    #Remove index file from /var/www/html
+    try:
+        os.remove('/var/www/html/index.html')
+    except OSError as error:
+        print('[WARNING] Unable to delete index.html file from document root (/var/www/html) of apache.')
+        print('[DEBUG] Error was {}'.format(error))
+
 
 # Sets up https configuration for apache
 def tls_configuration(email_address, test):

@@ -132,10 +132,6 @@ RUN echo "/etc/init.d/guacd start" > /home/setup.sh && \
 RUN chmod 700 /home/setup.sh
 
 
-#Remove this finally. Docker containers dont need unnecessary stuff
-RUN apt-get update && apt-get install -y nano 
-
-
 #Setting to execute the shell script when the container is launched
 CMD ["/home/setup.sh"]
 

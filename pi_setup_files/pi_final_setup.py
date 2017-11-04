@@ -13,18 +13,27 @@ import pi_settings as settings
 def fetch_arguments():
     parser = argparse.ArgumentParser(description='Raspberry Pi setup part-2')
 
-    parser.add_argument('-e', '--email',
-                        help='This email address will be used to recover server certificate key using letsencrypt',
-                        required=True
-                        )
-
     parser.add_argument('-t', '--testing',
                         help='Testing mode. Obtains invalid server certificate from letsencrypt',
                         action='store_true'
                         )
 
+    parser.add_argument('-e', '--email',
+                        help='This email address will be used to recover server certificate key using letsencrypt',
+                        required=True
+                        )
+
     arguments = parser.parse_args()
     return arguments
+
+
+# This method Upgrades all existing packages
+# Note: upgrade only after installing and configuring all other packages
+# In the case of kernel upgrades, it requires restart and trying to
+# configure packages before restart causes exceptions.
+def upgrade_packages():
+    print('Upgrading existing packages')
+    subprocess.call(['apt-get', '-y', 'upgrade'])
 
 
 # Installs all required packages for our application
@@ -36,9 +45,8 @@ def install_packages():
                              's|#precedence ::ffff:0:0/96  100|precedence ::ffff:0:0/96  100|g',
                              '/etc/gai.conf'])
 
-    print('Upgrading existing packages')
+    print('Updating packages existing packages')
     subprocess.call(['apt-get', 'update'])
-    subprocess.call(['apt-get', '-y', 'upgrade'])
     print('Installing the following packages {}'.format(", ".join(packages)))
     subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
 
@@ -163,7 +171,7 @@ def apache_configuration():
                              's|Options Indexes FollowSymLinks|Options FollowSymLinks|g',
                              '/etc/apache2/apache2.conf'])
 
-    #Remove index file from /var/www/html
+    # Remove index file from /var/www/html
     try:
         os.remove('/var/www/html/index.html')
     except OSError as error:
@@ -230,6 +238,7 @@ def setup_cronjobs():
 
 # Rebooting the raspberry pi
 def clean_up_setup():
+    upgrade_packages()
     print('Rebooting the system in 5 seconds...')
     time.sleep(5)
     subprocess.check_output(['reboot', 'now'])

@@ -2,10 +2,10 @@
 
 import argparse
 import subprocess
-import getpass
 import time
 import os
 import sys
+import shutil
 
 import pi_settings as settings
 
@@ -24,8 +24,8 @@ def fetch_arguments():
                         required=True
                         )
 
-    arguments = parser.parse_args()
-    return arguments
+    args = parser.parse_args()
+    return args
 
 
 # This method Upgrades all existing packages
@@ -39,7 +39,7 @@ def upgrade_packages():
 
 # Installs all required packages for our application
 def install_packages():
-    packages = ['isc-dhcp-server', 'nmap','git', 'apache2', 'python-certbot-apache', 'python3-requests']
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python-certbot-apache', 'python3-requests']
 
     # Prefer IPV4 over IPV6 for downloading updates
     # subprocess.check_output(['sed', '-i', '--',
@@ -58,6 +58,9 @@ def install_packages():
 
 
 def isc_dhcp_server_configuration():
+    dhcpd_file = '/etc/dhcp/dhcpd.conf'
+    dhcpd_backup = '/etc/dhcp/dhcpd_backup.conf'
+
     dhcp_config = (
         '\nddns-update-style none;\ndeny declines;\ndeny bootp;\n'
         'subnet 192.168.7.0 netmask 255.255.255.0 {\n'
@@ -69,15 +72,41 @@ def isc_dhcp_server_configuration():
         '}'
     )
 
-    print('Adding the raspberry pi dhcp server configuration to /etc/dhcp/dhcpd.conf file')
-    with open('/etc/dhcp/dhcpd.conf', 'w') as file:
+    print('Adding the raspberry pi dhcp server configuration to {} file'.format(dhcpd_file))
+    if not os.path.isfile(dhcpd_backup):
+        shutil.copy2(dhcpd_file, dhcpd_backup)
+    else:
+        shutil.copy2(dhcpd_backup, dhcpd_file)
+    with open(dhcpd_file, 'w') as file:
         file.write(dhcp_config)
 
     subprocess.check_output(['sed', '-i', '--',
-                            's|INTERFACESv4=""|INTERFACESv4="eth0"|g',
-                            '/etc/default/isc-dhcp-server'])
+                             's|INTERFACESv4=""|INTERFACESv4="eth0"|g',
+                             '/etc/default/isc-dhcp-server'])
     print('Restarting the dhcp server service')
     subprocess.check_output(['service', 'isc-dhcp-server', 'restart'])
+
+
+# Sets up https configuration for apache
+def tls_configuration(email_address, test):
+    ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
+
+    if os.path.isdir(settings.DOMAIN_NAME) and os.path.isfile(ssl_config_file):
+        print('HTTPS already configured')
+        return
+
+    # Update DNS Record before getting certificate
+    subprocess.check_output('/etc/dns/dynv6.sh')
+
+    certbot_arguments = ['certbot', '-n', '--apache', '-d', settings.DOMAIN_NAME]
+
+    if test:
+        certbot_arguments.append('--staging')
+
+    certbot_arguments.extend(['--redirect', '--agree-tos', '--email', email_address])
+
+    print('Setting up HTTPS support for the website')
+    subprocess.check_output(certbot_arguments)
 
 
 # Creating configuration to proxy requests to the tomcat container
@@ -119,10 +148,9 @@ def apache_configuration():
 
     # Hiding apache web server signature
     apache_signature_config = (
-        '\n\n\t# Hiding apache web server signature'
+        '\n# Hiding apache web server signature'
         '\nServerSignature Off'
-        '\nServerTokens Prod'
-        '\n'
+        '\nServerTokens Prod\n'
     )
 
     # Other headers
@@ -138,63 +166,71 @@ def apache_configuration():
     # For enabling HSTS
     subprocess.check_output(['a2enmod', 'headers'])
 
-    with open('/etc/apache2/sites-enabled/000-default-le-ssl.conf', 'r') as file:
+    ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
+    ssl_config_backup = '/etc/apache2/sites-available/000-default-le-ssl_backup.conf'
+
+    with open(ssl_config_file, 'r') as file:
         contents = file.readlines()
 
     if len(contents) == 0:
-        print('[ERROR]The /etc/apache2/sites-enabled/000-default-le-ssl.conf file has no contents')
+        print('[ERROR]The {} file has no contents'.format(ssl_config_file))
         sys.exit()
 
-    with open('/etc/apache2/sites-enabled/000-default-le-ssl.conf', 'w') as file:
+    if not os.path.isfile(ssl_config_backup):
+        shutil.copy2(ssl_config_file, ssl_config_backup)
+    else:
+        shutil.copy2(ssl_config_backup, ssl_config_file)
+
+    with open(ssl_config_file, 'w') as file:
         for line in contents:
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
                 file.write(hsts_config + proxy_config + ocsp_stapling_config + miscellaneous_headers)
 
-    with open('/etc/apache2/mods-enabled/ssl.conf', 'r') as file:
+    ssl_mod_file = '/etc/apache2/mods-available/ssl.conf'
+    ssl_mod_backup = '/etc/apache2/mods-available/ssl_backup.conf'
+
+    with open(ssl_mod_file, 'r') as file:
         contents = file.readlines()
 
     if len(contents) == 0:
-        print('[ERROR]The /etc/apache2/mods-enabled/ssl.conf file has no contents')
+        print('[ERROR]The {} file has no contents'.format(ssl_mod_file))
         sys.exit()
 
-    with open('/etc/apache2/mods-enabled/ssl.conf', 'w') as file:
+    if not os.path.isfile(ssl_mod_backup):
+        shutil.copy2(ssl_mod_file, ssl_mod_backup)
+    else:
+        shutil.copy2(ssl_mod_backup, ssl_mod_file)
+
+    with open(ssl_mod_file, 'w') as file:
         for line in contents:
             file.write(line)
             if line.strip() == '<IfModule mod_ssl.c>':
                 file.write(ssl_stapling_cache)
 
-    with open('/etc/apache2/mods-enabled/ssl.conf', 'a') as file:
+    apache_config_file = '/etc/apache2/apache2.conf'
+    apache_config_backup = '/etc/apache2/apache2_backup.conf'
+
+    if not os.path.isfile(apache_config_backup):
+        shutil.copy2(apache_config_file, apache_config_backup)
+    else:
+        shutil.copy2(apache_config_backup, apache_config_file)
+
+    with open(apache_config_file, 'a') as file:
         file.write(apache_signature_config)
 
     # Disabling directory browsing
     subprocess.check_output(['sed', '-i', '--',
                              's|Options Indexes FollowSymLinks|Options FollowSymLinks|g',
-                             '/etc/apache2/apache2.conf'])
+                             apache_config_file])
 
     # Remove index file from /var/www/html
     try:
         os.remove('/var/www/html/index.html')
     except OSError as error:
-        print('[WARNING] Unable to delete index.html file from document root (/var/www/html) of apache.')
-        print('[DEBUG] Error was {}'.format(error))
-
-
-# Sets up https configuration for apache
-def tls_configuration(email_address, test):
-
-    # Update DNS Record before getting certificate
-    subprocess.check_output('/etc/dns/dynv6.sh')
-
-    certbot_arguments = ['certbot', '-n', '--apache', '-d', settings.DOMAIN_NAME]
-
-    if test:
-        certbot_arguments.append('--staging')
-
-    certbot_arguments.extend(['--redirect', '--agree-tos', '--email', email_address])
-
-    print('Setting up HTTPS support for our website')
-    subprocess.check_output(certbot_arguments)
+        if 'No such file or directory' not in error.strerror:
+            print('[WARNING] Unable to delete index.html file from document root (/var/www/html) of apache.')
+            print('[DEBUG] Error was {}'.format(error))
 
 
 # Installing docker
@@ -209,6 +245,11 @@ def docker_install():
 # Downloading our application from our git repository
 def guacamole_configuration():
     path = '/home/pi/minidmz'
+
+    if os.path.isdir(path):
+        print('Guacamole setup files already exists in {}'.format(path))
+        return
+
     git_command = 'git clone https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
     print('Fetching the guacamole setup files from git repository')
     subprocess.check_output(['runuser', '-l', 'pi', '-c', git_command])
@@ -216,7 +257,6 @@ def guacamole_configuration():
 
 
 def setup_cronjobs():
-
     # Update dns after reboot.
     # Update dns every one hour.
     # Start docker containers on boot (Todo Python script for this with proper checks of existence of containers)
@@ -253,7 +293,7 @@ if __name__ == '__main__':
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
-    tls_configuration(email,testing)
+    tls_configuration(email, testing)
     apache_configuration()
     setup_cronjobs()
     clean_up_setup()

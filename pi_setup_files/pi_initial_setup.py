@@ -42,6 +42,21 @@ def fetch_argument():
 # Configurations directly modifying pi
 def pi_configuration():
 
+    # Pi for a headless application then you can reduce the memory split
+    # between the GPU and the rest of the system down to 16mb
+    print('Setting GPU memory to 16mb')
+    try:
+        with open('/boot/config.txt', 'a') as file:
+            file.write('gpu_mem=16')
+    except OSError as error:
+        if 'Permission denied' in error.strerror:
+            print("[ERROR] Code is executed as a non privileged user."
+                  "\n[ERROR] Please re-run the script as superuser. [ sudo ./{} ]".format(os.path.basename(__file__)))
+            sys.exit()
+        print('[ERROR] Unknown error occurred while accessing /boot/config.txt file')
+        print('[ERROR] {}'.format(error.strerror))
+        sys.exit()
+
     # Forcing user to change default pi password
     print('Please change the default Rapberry Pi password')
     while True:
@@ -51,12 +66,6 @@ def pi_configuration():
             print("[ERROR] Please try again!")
             continue
         break
-
-    # Pi for a headless application then you can reduce the memory split
-    # between the GPU and the rest of the system down to 16mb
-    print('Setting GPU memory to 16mb')
-    with open('/boot/config.txt', 'a') as file:
-        file.write('gpu_mem=16')
 
     # Creating a file called ssh in boot.
     # This is required to enable ssh connection to pi

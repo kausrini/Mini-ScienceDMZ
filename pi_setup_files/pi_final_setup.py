@@ -9,6 +9,7 @@ import sys
 
 import pi_settings as settings
 
+
 # Fetches arguments from the user
 def fetch_arguments():
     parser = argparse.ArgumentParser(description='Raspberry Pi setup part-2')
@@ -41,9 +42,9 @@ def install_packages():
     packages = ['isc-dhcp-server', 'nmap','git', 'apache2', 'python-certbot-apache', 'python3-requests']
 
     # Prefer IPV4 over IPV6 for downloading updates
-    subprocess.check_output(['sed', '-i', '--',
-                             's|#precedence ::ffff:0:0/96  100|precedence ::ffff:0:0/96  100|g',
-                             '/etc/gai.conf'])
+    # subprocess.check_output(['sed', '-i', '--',
+    #                         's|#precedence ::ffff:0:0/96  100|precedence ::ffff:0:0/96  100|g',
+    #                         '/etc/gai.conf'])
 
     print('Updating packages existing packages')
     subprocess.call(['apt-get', 'update'])
@@ -51,9 +52,9 @@ def install_packages():
     subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
 
     # Resetting the preferences to default
-    subprocess.check_output(['sed', '-i', '--',
-                             's|precedence ::ffff:0:0/96  100|#precedence ::ffff:0:0/96  100|g',
-                             '/etc/gai.conf'])
+    # subprocess.check_output(['sed', '-i', '--',
+    #                         's|precedence ::ffff:0:0/96  100|#precedence ::ffff:0:0/96  100|g',
+    #                         '/etc/gai.conf'])
 
 
 def isc_dhcp_server_configuration():

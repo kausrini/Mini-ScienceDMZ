@@ -179,6 +179,11 @@ def network_configuration(wpa_username, wpa_password):
 
     final_wpa_config = '\nnetwork={\n' + wpa_config + '}\n'
 
+    loopback_config(
+        '\nauto lo\n'
+        'iface lo inet loopback\n'
+    )
+
     wifi_config = (
         '\nauto wlan0\n'
         'allow-hotplug wlan0\n'
@@ -210,7 +215,7 @@ def network_configuration(wpa_username, wpa_password):
     else:
         shutil.copy2(interfaces_backup, interfaces_file)
     with open(interfaces_file, 'a') as file:
-        file.write(wifi_config + ethernet_config)
+        file.write(loopback_config + wifi_config + ethernet_config)
 
 
 # Rebooting the raspberry pi

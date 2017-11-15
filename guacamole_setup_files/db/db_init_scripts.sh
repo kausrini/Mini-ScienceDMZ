@@ -1,6 +1,6 @@
 # First argument is the mysql database root password
 # Second argument is the mysql user password
-# Third argument is the guacamole administrator Indiana University Username
+# Third argument is the guacamole administrator CAS Username. 
 # Fourth argument is the ip address of equipment
 
 # Creates a MySQL user account to access the guacamole_db database

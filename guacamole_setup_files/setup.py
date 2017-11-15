@@ -22,7 +22,7 @@ def fetch_argument():
                         )
 
     parser.add_argument('-u', '--username',
-                        help='The IU username which acts as the Administrator for the Guacamole application',
+                        help='The CAS username which acts as the Administrator for the Guacamole application',
                         required=True
                         )
     arguments = parser.parse_args()

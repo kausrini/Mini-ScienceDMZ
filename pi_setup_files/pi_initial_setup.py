@@ -30,7 +30,7 @@ def fetch_argument():
     # WPA-PSK requires only a password (pre-shared key) for connecting to network. Typical home network
 
     while True:
-        sys.stdout.write('Are you trying to connect to an Enterprise wifi network (WPA-EAP) which requires'
+        sys.stdout.write('Are you trying to connect to an WPA-Enterprise which requires'
                          ' an username for connection? [Y/n] ')
 
         valid_choices = {"yes": True, "y": True, "ye": True,
@@ -46,17 +46,15 @@ def fetch_argument():
     wifi_username = None
 
     if valid_choices[choice]:
-        parser.add_argument('-u', '--username',
-                            help='Username to connect to the Wireless network',
-                            required=True
-                            )
+        while True:
+            sys.stdout.write('Enter the Username required for connecting to the Wireless network : ')
+            wifi_username = input()
+            if len(wifi_username):
+               break
+            else:
+                print('[ERROR] Please enter an Username for authenticating with the Wireless network')
 
-    arguments = parser.parse_args()
-
-    wifi_ssid = arguments.ssid
-
-    if valid_choices[choice]:
-        wifi_username = arguments.username
+    wifi_ssid = parser.parse_args().ssid
 
     while True:
         wifi_password = getpass.getpass('Enter Wifi Password : ')

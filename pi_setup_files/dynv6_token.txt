@@ -1,0 +1,4 @@
+# Enter the value of token for authenticating with dynv6. 
+# Do not commit this file or share this token with anyone. 
+token = TOKEN_WILL_REPLACE_THIS 
+

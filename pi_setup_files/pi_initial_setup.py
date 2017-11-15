@@ -20,28 +20,58 @@ def file_directory():
 # Obtain command line arguments
 def fetch_argument():
     parser = argparse.ArgumentParser(description='Raspberry Pi setup part-1')
-    parser.add_argument('-u', '--username',
-                        help='IU Username to connect to the IU Wireless network',
+
+    parser.add_argument('-s', '--ssid',
+                        help='Provide the Wireless network SSID',
                         required=True
                         )
-    iu_username = parser.parse_args().username
+
+    # WPA-EAP requires an username and password for connecting to the network. Typical enterprise config
+    # WPA-PSK requires only a password (pre-shared key) for connecting to network. Typical home network
 
     while True:
+        sys.stdout.write('Are you trying to connect to an Enterprise wifi network (WPA-EAP) which requires'
+                         ' an username for connection? [Y/n] ')
 
-        iu_password = getpass.getpass('Enter IU Password : ')
-        iu_verify_password = getpass.getpass('Re-enter IU Password : ')
+        valid_choices = {"yes": True, "y": True, "ye": True,
+                         "no": False, "n": False}
 
-        if iu_password == iu_verify_password:
+        choice = input().lower()
+
+        if choice in valid_choices:
+            break
+        else:
+            print("Please respond with 'yes' or 'no' (or 'y' or 'n').")
+
+    wifi_username = None
+
+    if valid_choices[choice]:
+        parser.add_argument('-u', '--username',
+                            help='Username to connect to the Wireless network',
+                            required=True
+                            )
+
+    arguments = parser.parse_args()
+
+    wifi_ssid = arguments.ssid
+
+    if valid_choices[choice]:
+        wifi_username = arguments.username
+
+    while True:
+        wifi_password = getpass.getpass('Enter Wifi Password : ')
+        wifi_verify_password = getpass.getpass('Re-enter Wifi Password : ')
+
+        if wifi_password == wifi_verify_password:
             break
         else:
             print("[Error] The passwords do not match. Please enter again.")
 
-    return iu_username, iu_password
+    return wifi_ssid, wifi_username, wifi_password
 
 
 # Configurations directly modifying pi
 def pi_configuration():
-
     # Pi for a headless application then you can reduce the memory split
     # between the GPU and the rest of the system down to 16mb
     print('Setting GPU memory to 16mb')
@@ -114,7 +144,7 @@ def dns_configuration(base_path):
     print('Setting up the dynamic dns configuration')
     file_name = '/dynv6.sh'
     path_name = '/etc/dns'
-    token_file_name = '/dynv6_token.txt'
+
     # Creating the folder for our dns script file
     try:
         os.makedirs(path_name)
@@ -129,24 +159,8 @@ def dns_configuration(base_path):
     os.chmod(path_name + file_name, 0o700)
     subprocess.check_output(['chown', 'root', path_name + file_name])
 
-    with open(base_path + token_file_name, 'r') as file:
-        data = file.readlines()
-
-    dns_token = None
-
-    for string in data:
-        if string.strip()[0] != '#' and 'token' in string.strip():
-            dns_token = string.strip().split('=')[1].strip()
-
-    if dns_token is None or dns_token is 'TOKEN_WILL_REPLACE_THIS':
-        print(('[ERROR] The file {} does not have a valid dynv6_token.\n' 
-               'Check out https://dynv6.com/docs/apis for token.\n'
-               'Then token must be present in the file of the form "token = YOUR TOKEN"\n'
-               ).format(file_name))
-        sys.exit()
-
     subprocess.check_output(['sed', '-i', '--',
-                             's|token="YOUR_DYNV6_TOKEN_HERE"|token="' + dns_token + '"|g',
+                             's|token="YOUR_DYNV6_TOKEN_HERE"|token="' + settings.DYNV6_API_TOKEN + '"|g',
                              path_name + file_name])
 
     subprocess.check_output(['sed', '-i', '--',
@@ -154,10 +168,10 @@ def dns_configuration(base_path):
                              path_name + file_name])
 
 
-# Create Wifi configuration for connecting to IU Secure network
+# Create Wifi configuration for connecting to Wireless network
 # Adds script to initialize firewall rules
-# Adds script to register ip with dynv6 service
-def network_configuration(wpa_username, wpa_password):
+# Adds script to register ip with dynv6 dynamic dns service
+def network_configuration(wifi_ssid, wpa_username, wpa_password):
     print('Setting up the wifi configuration')
 
     wpa_config_file = '/etc/wpa_supplicant/wpa_supplicant.conf'
@@ -165,21 +179,30 @@ def network_configuration(wpa_username, wpa_password):
     interfaces_file = '/etc/network/interfaces'
     interfaces_backup = interfaces_file + '_backup'
 
-    wpa_config = (
-        '\tssid="IU Secure"\n'
-        '\tkey_mgmt=WPA-EAP\n'
-        '\tpairwise=CCMP TKIP\n'
-        '\tgroup=CCMP TKIP\n'
-        '\teap=PEAP\n'
-        '\tphase1="peapver=0"\n'
-        '\tphase2="MSCHAPV2"\n'
-        '\tidentity="{}"\n'
-        '\tpassword="{}"\n'
-    ).format(wpa_username, wpa_password)
+    if wpa_username is not None:
+        # WPA-EAP Configuration
+        wpa_config = (
+            '\tssid="{}"\n'
+            '\tkey_mgmt=WPA-EAP\n'
+            '\tpairwise=CCMP TKIP\n'
+            '\tgroup=CCMP TKIP\n'
+            '\teap=PEAP\n'
+            '\tphase1="peapver=0"\n'
+            '\tphase2="MSCHAPV2"\n'
+            '\tidentity="{}"\n'
+            '\tpassword="{}"\n'
+        ).format(wifi_ssid, wpa_username, wpa_password)
+    else:
+        # WPA-PSK Configuration
+        # Note this configuration has not been (and won't be) tested.
+        wpa_config = (
+            '\tssid="{}"\n'
+            '\tpsk="{}"\n'
+        ).format(wifi_ssid, wpa_password)
 
     final_wpa_config = '\nnetwork={\n' + wpa_config + '}\n'
 
-    loopback_config(
+    loopback_config = (
         '\nauto lo\n'
         'iface lo inet loopback\n'
     )
@@ -190,7 +213,6 @@ def network_configuration(wpa_username, wpa_password):
         'iface wlan0 inet dhcp\n'
         '\twpa-conf /etc/wpa_supplicant/wpa_supplicant.conf\n'
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
-        '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
     )
 
     ethernet_config = (
@@ -226,10 +248,11 @@ def clean_up_setup():
 
 
 if __name__ == '__main__':
-    username, password = fetch_argument()
+    settings.test_values()
+    ssid, username, password = fetch_argument()
     base_directory = file_directory()
     pi_configuration()
     firewall_configuration(base_directory)
-    network_configuration(username, password)
+    network_configuration(ssid, username, password)
     dns_configuration(base_directory)
     clean_up_setup()

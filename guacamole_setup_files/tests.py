@@ -173,9 +173,18 @@ def check_rdp_connection():
     print("[Success] Equipment is connected to raspberry pi and RDP is enabled.")
 
 
+# Checks if valid domain name entered in settings.py file
+def check_domain_name(domain_name):
+    if not len(domain_name):
+        print('[ERROR] Valid DOMAIN_NAME missing from settings.py file'
+              'Modify the value and re-run the script')
+        sys.exit()
+
+
 def run_tests():
     directories = settings.fetch_file_directories()
     check_directories_files(directories)
+    check_domain_name(settings.DOMAIN_NAME)
     check_dockerfile_links()
     check_rdp_connection()
     print("All tests are complete and were successful")

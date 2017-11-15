@@ -1,2 +1,0 @@
-#Enter the value of token for authenticating with dynv6. Not a good auth mechanism :-( 
-token = TOKEN_WILL_REPLACE_THIS

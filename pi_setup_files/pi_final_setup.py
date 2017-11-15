@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
-import subprocess
-import time
 import os
-import sys
 import shutil
+import socket
+import subprocess
+import sys
+import time
 
 import pi_settings as settings
 
@@ -91,7 +92,7 @@ def isc_dhcp_server_configuration():
 def tls_configuration(email_address, test):
     ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
 
-    if os.path.isdir(settings.DOMAIN_NAME) and os.path.isfile(ssl_config_file):
+    if os.path.isdir('/etc/letsencrypt/live/' + settings.DOMAIN_NAME) and os.path.isfile(ssl_config_file):
         print('HTTPS already configured')
         return
 
@@ -285,7 +286,28 @@ def clean_up_setup():
     subprocess.check_output(['reboot', 'now'])
 
 
+# Checks internet connectivity by trying tcp connect to archive.raspberrypi.org
+# Fails in case archive.raspberrypi.org is down (highly unlikely) or if dns resolver fails
+def check_internet_connectivity():
+    print('Checking Internet Connectivity')
+    connected = False
+    try:
+        host = 'archive.raspberrypi.org'
+        socket.create_connection((host, 80))
+        connected = True
+    except OSError:
+        pass
+
+    if not connected:
+        print('[ERROR] No internet connectivity. Please check if pi connected to wifi network'
+              'If not verify the wpa_supplicant config file'
+              'If connected to Wireless network, check if archive.raspberrypi.org is down (Unlikely!)')
+        sys.exit()
+
+
 if __name__ == '__main__':
+    settings.test_values()
+    check_internet_connectivity()
     arguments = fetch_arguments()
     email = arguments.email
     testing = arguments.testing

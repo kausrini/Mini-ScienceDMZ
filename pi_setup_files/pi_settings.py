@@ -2,10 +2,7 @@
 
 import sys
 
-# DO NOT PUSH TO GIT AFTER ENTERING DYNV6_API_TOKEN. IT IS THE SAME AS A PASSWORD.
-DYNV6_API_TOKEN = ''
 DOMAIN_NAME = ''
-
 
 # Checks if valid values entered for setup settings in pi_settings.py file
 def test_values():

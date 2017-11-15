@@ -144,6 +144,7 @@ def dns_configuration(base_path):
     print('Setting up the dynamic dns configuration')
     file_name = '/dynv6.sh'
     path_name = '/etc/dns'
+    token_file_name = '/dynv6_token.txt'
 
     # Creating the folder for our dns script file
     try:
@@ -159,8 +160,24 @@ def dns_configuration(base_path):
     os.chmod(path_name + file_name, 0o700)
     subprocess.check_output(['chown', 'root', path_name + file_name])
 
+    with open(base_path + token_file_name, 'r') as file:
+        data = file.readlines()
+
+    dns_token = None
+
+    for string in data:
+        if string.strip()[0] != '#' and 'token' in string.strip():
+            dns_token = string.strip().split('=')[1].strip()
+
+    if dns_token is None or dns_token is 'TOKEN_WILL_REPLACE_THIS':
+        print(('[ERROR] The file {} does not have a valid dynv6_token.\n'
+               'Check out https://dynv6.com/docs/apis for token.\n'
+               'Then token must be present in the file of the form "token = YOUR TOKEN"\n'
+               ).format(file_name))
+        sys.exit()
+
     subprocess.check_output(['sed', '-i', '--',
-                             's|token="YOUR_DYNV6_TOKEN_HERE"|token="' + settings.DYNV6_API_TOKEN + '"|g',
+                             's|token="YOUR_DYNV6_TOKEN_HERE"|token="' + dns_token + '"|g',
                              path_name + file_name])
 
     subprocess.check_output(['sed', '-i', '--',

@@ -1,42 +1,67 @@
 # Mini-ScienceDMZ
 The project designs, develops, and tests the deployment of a small device (Raspberry Pi) that functions as a firewall, large file transfer facility, and network performance monitor
 
-1. Follow the instructions on the official raspberry pi page to install Raspbian on the raspberry pi sd card. 
+1. Follow the instructions on the official raspberry pi page to install Raspbian on a SD card. 
    https://www.raspberrypi.org/documentation/installation/installing-images/
 
-2. Download the files from https://github.com/kausrini/Mini-ScienceDMZ/tree/master/pi_setup_files 
+2. Create an account in https://dynv6.com/ and register a DOMAIN_NAME.
 
-3. Place the above files in the boot directory of the above SD card.
+3. Download the files from https://github.com/kausrini/Mini-ScienceDMZ/tree/master/pi_setup_files
 
-4. Edit the dynv6_token.txt to replace 'TOKEN_WILL_REPLACE_THIS' with the actual token for dynamic dns. 
+4. Place the above files in the boot directory of the SD card.
+
+5. Go to https://dynv6.com/docs/apis and obtain 'Your API token'. 
+
+6. Edit the dynv6_token.txt to replace 'TOKEN_WILL_REPLACE_THIS' with 'Your API token'. 
+
+7. Edit the pi_settings.py and store the DOMAIN_NAME you registered in step 2 in the variable DOMAIN_NAME.
+
+8. Insert the sd card in the pi and connect power cable, HDMI, Keyboard to it.
+
+9. Log into the raspberry pi with default credentials. (Username : pi, Password : raspberry)
+
+10. Enter the following commands
+
+11. sudo chmod 700 /boot/*.py
+
+12. sudo /boot/pi_initial_setup.py -s [YOUR_WIFI_SSID] 
    
-   For more information login to https://dynv6.com/docs/apis and obtain the token.
-
-4. Insert the sd card in the pi and connect power cable, HDMI, Keyboard to it.
-
-5. Log into the raspberry pi with default credentials. (Username : pi, Password : raspberry)
-
-6. Enter the following commands
-
-7. sudo chmod 770 /boot/*.py
-
-8. sudo /boot/pi_initial_setup.py -u IU_USERNAME
-   
-   Replace IU_USERNAME with your IU username.
-   Enter your IU password when you are prompted for it.
-   Change the password (new password) for the raspberry pi when prompted for it.
+   Replace [YOUR_WIFI_SSID] with your wifi ssid.
+   Answer the prompt if the wifi network is WPA-Enterprise.
+   Enter the wifi password when you are prompted for it.
+   Change the default raspberry pi password to a NEW_PASSWORD when prompted for it.
    The pi will reboot after configuration.
 
-9. Log into the raspberry pi with the username pi and the new password.
+13. Log into the raspberry pi with the username pi and the NEW_PASSWORD.
 
-10. sudo /boot/pi_final_setup.py
+14. sudo /boot/pi_final_setup.py -t -e <email address>
     
     The pi will reboot after configuring the raspberry pi.
 
-11. Login to pi with username pi and the password set by you.
+15. Login to pi with username pi and the password set by you.
 
-12. /home/pi/minidmz/guacamole_setup_files/setup.py -u IU_USERNAME
+16. Edit the file /home/pi/minidmz/guacamole_setup_files/settings.py and change DOMAIN_NAME to the registered DOMAIN_NAME
+
+17. /home/pi/minidmz/guacamole_setup_files/setup.py -u CAS_USERNAME
     
-    Replace the IU_USERNAME with the IU username who will be the administrator for the application.
+    Replace the CAS_USERNAME with the username used to authenticate with CAS server. This username (user) will be the administrator for the application.
     This administrator would also be able to add other users to the application granting them access to the scientific device.
+
+
+Note:
+
+An WPA-Enterprise wifi network requires an username and password for connection. Examples are corporate networks or university networks.
+A WPA-Personal wifi network requires only password for connection. Examples are home wifi network.
+
+The script tries to configure Wireless connection using standard configurations. If the wireless is not configured, manual configuration may be 
+required. Check wpa_supplicant.conf, interfaces for modifications.
+
+For production purposes do not use the option -t or --testing with pi_final_setup.py. It obtains an invalid certificate for testing purposes. For futher
+details check https://letsencrypt.org/docs/staging-environment/
+
+Email address is required by pi_final_setup.py to setup TLS on the raspberrypi. The certificate is obtained from letsencrypt and they require email address
+for notifying in case of certificate expiring and for revoking certificates.
+
+
+
 

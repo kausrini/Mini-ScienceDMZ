@@ -18,35 +18,39 @@ The project designs, develops, and tests the deployment of a small device (Raspb
 
 8. Insert the sd card in the pi and connect power cable, HDMI, Keyboard to it.
 
-9. Log into the raspberry pi with default credentials. (Username : pi, Password : raspberry)
+9. Connect the pi to the RDP enabled equipment using a lan cable.
 
-10. Enter the following commands
+10. Log into the raspberry pi with default credentials. (Username : pi, Password : raspberry)
 
-11. sudo chmod 700 /boot/*.py
+11. Enter the following commands
 
-12. sudo /boot/pi_initial_setup.py -s [YOUR_WIFI_SSID] 
+12. sudo chmod 700 /boot/*.py
+
+13. sudo /boot/pi_initial_setup.py -s [YOUR_WIFI_SSID] 
    
    Replace [YOUR_WIFI_SSID] with your wifi ssid.
    Answer the prompt if the wifi network is WPA-Enterprise.
+   If answered with yes, you will be prompted for username. Provide the username.
    Enter the wifi password when you are prompted for it.
    Change the default raspberry pi password to a NEW_PASSWORD when prompted for it.
    The pi will reboot after configuration.
 
-13. Log into the raspberry pi with the username pi and the NEW_PASSWORD.
+14. Log into the raspberry pi with the username pi and the NEW_PASSWORD.
 
-14. sudo /boot/pi_final_setup.py -t -e <email address>
+15. sudo /boot/pi_final_setup.py -t -e <email address>
     
     The pi will reboot after configuring the raspberry pi.
 
-15. Login to pi with username pi and the password set by you.
+16. Login to pi with username pi and the password set by you.
 
-16. Edit the file /home/pi/minidmz/guacamole_setup_files/settings.py and change DOMAIN_NAME to the registered DOMAIN_NAME
+17. Edit the file /home/pi/minidmz/guacamole_setup_files/settings.py and change DOMAIN_NAME to the registered DOMAIN_NAME
 
-17. /home/pi/minidmz/guacamole_setup_files/setup.py -u CAS_USERNAME
+18. /home/pi/minidmz/guacamole_setup_files/setup.py -u CAS_USERNAME
     
     Replace the CAS_USERNAME with the username used to authenticate with CAS server. This username (user) will be the administrator for the application.
     This administrator would also be able to add other users to the application granting them access to the scientific device.
 
+19. The Guacamole page can be visited at https://DOMAIN_NAME/guacamole/
 
 Note:
 

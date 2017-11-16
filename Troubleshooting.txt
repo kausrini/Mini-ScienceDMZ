@@ -1,0 +1,29 @@
+Troubleshooting :
+
+1. CAS authentication page is not presented when the guacamole page is visited.
+
+Check the CAS_AUTHORIZATION_ENDPOINT and make sure it is the appropriate url.
+DO NOT use the CAS login url (Ex : https://cas.iu.edu/cas/login or https://www.purdue.edu/apps/account/cas/login)
+Use instead https://cas.iu.edu/cas/ as CAS_AUTHORIZATION_ENDPOINT
+
+2. CAS authentication is successful but presented with a blank page. No connection available.
+Check whether the CAS username is present in authorized users list. The administrator can add other CAS usernames to allow them access to the equipment.
+If the administrator is unable to see any connection, re-run the setup.py in guacamole with the parameter -u USERNAME which should match the CAS Username.
+
+
+3.Issue similar to "The {link} specified in the {file} is invalid"
+
+The error would clearly state which links are invalid. Find the link in the {file} and use a browser to check why the link doesn't work.
+
+This usually happens when the link is dead and the package has been moved to a new location due to an upgrade. 
+Easy way to handle this is considering the following example.
+
+[Error] The link https://www-us.apache.org/dist/tomcat/tomcat-8/v8.5.21/bin/apache-tomcat-8.5.21.tar.gz specified in the Guacamole Dockerfile is invalid.
+
+Go to the link https://www-us.apache.org/dist/tomcat/tomcat-8/ in a browser. You would notice that the folder v8.5.21 is missing. Instead, there might
+be a folder v8.5.23 which is the updated version of tomcat package. 
+
+So go to settings.py file, change the TOMCAT_VERSION from  8.5.21 to 8.5.23. Now re-run the script
+
+
+

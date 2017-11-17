@@ -55,14 +55,16 @@ The project designs, develops, and tests the deployment of a small device (Raspb
 
 Note:
 
+Please secure the SSH server. Disable Password logins and move to SSH-Keys.
+
+For production purposes do not use the option -t or --testing with pi_final_setup.py. It obtains an invalid certificate for testing purposes. For futher
+details check https://letsencrypt.org/docs/staging-environment/
+
 An WPA-Enterprise wifi network requires an username and password for connection. Examples are corporate networks or university networks.
 A WPA-Personal wifi network requires only password for connection. Examples are home wifi network.
 
 The script tries to configure Wireless connection using standard configurations. If the wireless is not configured, manual configuration may be 
 required. Check wpa_supplicant.conf, interfaces for modifications.
-
-For production purposes do not use the option -t or --testing with pi_final_setup.py. It obtains an invalid certificate for testing purposes. For futher
-details check https://letsencrypt.org/docs/staging-environment/
 
 Email address is required by pi_final_setup.py to setup TLS on the raspberrypi. The certificate is obtained from letsencrypt and they require email address
 for notifying in case of certificate expiring and for revoking certificates.

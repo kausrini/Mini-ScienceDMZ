@@ -164,8 +164,9 @@ def dns_configuration(base_path):
     dns_token = None
 
     for string in data:
-        if string.strip()[0] != '#' and 'token' in string.strip():
-            dns_token = string.strip().split('=')[1].strip()
+        if len(string) > 0:
+            if string.strip()[0] != '#' and 'token' in string.strip():
+                dns_token = string.strip().split('=')[1].strip()
 
     if dns_token is None or dns_token is 'TOKEN_WILL_REPLACE_THIS':
         print(('[ERROR] The file {} does not have a valid dynv6_token.\n'

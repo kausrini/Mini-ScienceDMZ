@@ -26,9 +26,9 @@ The project designs, develops, and tests the deployment of a small device (Raspb
 
 12. sudo chmod 700 /boot/*.py
 
-13. sudo /boot/pi_initial_setup.py -s [YOUR_WIFI_SSID] 
+13. sudo /boot/pi_initial_setup.py -s 'YOUR_WIFI_SSID' 
    
-   Replace [YOUR_WIFI_SSID] with your wifi ssid.
+   Replace YOUR_WIFI_SSID with your wifi ssid. (Quotes is required only if the ssid has any whitespace characters)
    Answer the prompt if the wifi network is WPA-Enterprise.
    If answered with yes, you will be prompted for username. Provide the username.
    Enter the wifi password when you are prompted for it.
@@ -37,8 +37,9 @@ The project designs, develops, and tests the deployment of a small device (Raspb
 
 14. Log into the raspberry pi with the username pi and the NEW_PASSWORD.
 
-15. sudo /boot/pi_final_setup.py -t -e <email address>
+15. sudo /boot/pi_final_setup.py -t -e YOUR_EMAIL_ADDRESS
     
+	-t obtains invalid HTTPS certificate for testing purposes.
     The pi will reboot after configuring the raspberry pi.
 
 16. Login to pi with username pi and the password set by you.

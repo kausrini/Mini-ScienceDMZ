@@ -26,9 +26,10 @@ def fetch_argument():
                         required=True
                         )
 
+    wifi_ssid = parser.parse_args().ssid
+
     # WPA-EAP requires an username and password for connecting to the network. Typical enterprise config
     # WPA-PSK requires only a password (pre-shared key) for connecting to network. Typical home network
-
     while True:
         sys.stdout.write('Are you trying to connect to an WPA-Enterprise which requires'
                          ' an username for connection? [Y/n] ')
@@ -53,8 +54,6 @@ def fetch_argument():
                break
             else:
                 print('[ERROR] Please enter an Username for authenticating with the Wireless network')
-
-    wifi_ssid = parser.parse_args().ssid
 
     while True:
         wifi_password = getpass.getpass('Enter Wifi Password : ')

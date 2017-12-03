@@ -17,22 +17,9 @@ def file_directory():
     return path
 
 
-# Obtain command line arguments
-def fetch_argument():
-    parser = argparse.ArgumentParser(description='Raspberry Pi setup part-1')
-
-    parser.add_argument('-s', '--ssid',
-                        help='Provide the Wireless network SSID',
-                        required=True
-                        )
-
-    wifi_ssid = parser.parse_args().ssid
-
-    # WPA-EAP requires an username and password for connecting to the network. Typical enterprise config
-    # WPA-PSK requires only a password (pre-shared key) for connecting to network. Typical home network
+def user_prompt(prompt_message):
     while True:
-        sys.stdout.write('Are you trying to connect to an WPA-Enterprise which requires'
-                         ' an username for connection? [Y/n] ')
+        sys.stdout.write(prompt_message + '? [Y/n] ')
 
         valid_choices = {"yes": True, "y": True, "ye": True,
                          "no": False, "n": False}
@@ -44,14 +31,32 @@ def fetch_argument():
         else:
             print("Please respond with 'yes' or 'no' (or 'y' or 'n').")
 
+    return valid_choices[choice]
+
+
+# Check if wireless or wired connection and fetch parameters accordingly
+def fetch_wireless_parameters():
+    if user_prompt('Are you connecting the raspberry pi to a wireless connection'):
+        while True:
+            sys.stdout.write('Enter the Wireless network SSID : ')
+            wifi_ssid = input()
+            if len(wifi_ssid):
+                break
+            else:
+                print('[ERROR] Please enter an Wireless network SSID')
+    else:
+        return None, None, None
+
     wifi_username = None
 
-    if valid_choices[choice]:
+    # WPA-EAP requires an username and password for connecting to the network. Typical enterprise config
+    # WPA-PSK requires only a password (pre-shared key) for connecting to network. Typical home network
+    if user_prompt('Are you trying to connect to an WPA-Enterprise which requires an username for connection'):
         while True:
             sys.stdout.write('Enter the Username required for connecting to the Wireless network : ')
             wifi_username = input()
             if len(wifi_username):
-               break
+                break
             else:
                 print('[ERROR] Please enter an Username for authenticating with the Wireless network')
 
@@ -137,11 +142,16 @@ def firewall_configuration(base_path):
 
 
 # Create the dynamic dns configuration for the raspberry pi
-def dns_configuration(base_path):
+def dns_configuration(base_path, wireless):
     print('Setting up the dynamic dns configuration')
     file_name = '/dynv6.sh'
     path_name = '/etc/dns'
     token_file_name = '/dynv6_token.txt'
+
+    if wireless is None:
+        device = 'eth1'
+    else:
+        device = 'wlan0'
 
     # Creating the folder for our dns script file
     try:
@@ -182,10 +192,13 @@ def dns_configuration(base_path):
                              's|hostname="YOUR_DOMAIN_NAME_HERE"|hostname="' + settings.DOMAIN_NAME + '"|g',
                              path_name + file_name])
 
+    subprocess.check_output(['sed', '-i', '--',
+                             's|device="YOUR_NETWORK_DEVICE_NAME_HERE"|device="' + device + '"|g',
+                             path_name + file_name])
+
 
 # Create Wifi configuration for connecting to Wireless network
 # Adds script to initialize firewall rules
-# Adds script to register ip with dynv6 dynamic dns service
 def network_configuration(wifi_ssid, wpa_username, wpa_password):
     print('Setting up the wifi configuration')
 
@@ -230,13 +243,29 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
     )
 
-    ethernet_config = (
+    ethernet_config_instrument = (
         '\nauto eth0\n'
         'iface eth0 inet static\n'
         '\taddress 192.168.7.1\n'
         '\tnetmask 255.255.255.0\n'
         '\tnetwork 192.168.7.0'
     )
+
+    ethernet_config_internet = (
+        '\nauto eth1\n'
+        'iface eth1 inet dhcp\n'
+        '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
+    )
+
+    if not os.path.isfile(interfaces_backup):
+        shutil.copy2(interfaces_file, interfaces_backup)
+    else:
+        shutil.copy2(interfaces_backup, interfaces_file)
+
+    # Wired internet connection
+    if wifi_ssid is None:
+        with open(interfaces_file, 'a') as file:
+            file.write(loopback_config + ethernet_config_internet)
 
     print('Adding WPA configuration to {} file'.format(wpa_config_file))
     if not os.path.isfile(wpa_config_backup):
@@ -247,12 +276,8 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
         file.write(final_wpa_config)
 
     print('Adding WIFI configuration to {} file'.format(interfaces_file))
-    if not os.path.isfile(interfaces_backup):
-        shutil.copy2(interfaces_file, interfaces_backup)
-    else:
-        shutil.copy2(interfaces_backup, interfaces_file)
     with open(interfaces_file, 'a') as file:
-        file.write(loopback_config + wifi_config + ethernet_config)
+        file.write(loopback_config + wifi_config + ethernet_config_instrument)
 
 
 # Rebooting the raspberry pi
@@ -264,10 +289,10 @@ def clean_up_setup():
 
 if __name__ == '__main__':
     settings.test_values()
-    ssid, username, password = fetch_argument()
     base_directory = file_directory()
+    ssid, username, password = fetch_wireless_parameters()
     pi_configuration()
     firewall_configuration(base_directory)
     network_configuration(ssid, username, password)
-    dns_configuration(base_directory)
+    dns_configuration(base_directory, ssid)
     clean_up_setup()

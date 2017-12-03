@@ -1,7 +1,7 @@
 #!/bin/sh -e
 token="YOUR_DYNV6_TOKEN_HERE"
 hostname="YOUR_DOMAIN_NAME_HERE"
-device="wlan0"
+device="YOUR_NETWORK_DEVICE_NAME_HERE"
 
 if [ "$token" = "YOUR_DYNV6_TOKEN_HERE" ]; then
   echo "Valid Authentication token missing!!"
@@ -10,7 +10,7 @@ fi
 
 
 if [ -z "$hostname" ]; then
-  echo "Usage: $0 your-name.dynv6.net [device]"
+  echo "[ERROR] Hostname missing"
   exit 1
 fi
 

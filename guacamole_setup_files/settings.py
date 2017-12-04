@@ -13,7 +13,7 @@ CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
 # to http instead of https and also port 8080 need to be there
 CAS_REDIRECT_URI = 'https://{}/guacamole/'.format(DOMAIN_NAME)
 
-TOMCAT_VERSION = '8.5.23'
+TOMCAT_VERSION = '8.5.24'
 GUACAMOLE_VERSION = '0.9.13'
 MYSQL_CONNECTOR_VERSION = '5.1.44'
 

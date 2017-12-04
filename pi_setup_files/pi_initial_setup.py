@@ -228,6 +228,7 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
         'iface wlan0 inet dhcp\n'
         '\twpa-conf /etc/wpa_supplicant/wpa_supplicant.conf\n'
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
+        '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
     )
 
     ethernet_config = (

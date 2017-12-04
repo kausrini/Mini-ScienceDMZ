@@ -70,7 +70,7 @@ RUN apt-get update && apt-get install -y \
 
 
 # Downloading and Installing Guacamole Server
-RUN curl -O http://apache.mirrors.tds.net/incubator/guacamole/$GUACAMOLE_VERSION-incubating/source/guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz && \	
+RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION-incubating/source/guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz && \	
     tar -xzf guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz -C /home && \
     rm guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz && \
     cd /home/guacamole-server-$GUACAMOLE_VERSION-incubating/ && \
@@ -81,7 +81,7 @@ RUN curl -O http://apache.mirrors.tds.net/incubator/guacamole/$GUACAMOLE_VERSION
 
 	
 # Downloading Guacamole-Client war file  and moving to tomcat webapp folder
-RUN curl -O http://apache.mirrors.tds.net/incubator/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-$GUACAMOLE_VERSION-incubating.war && \
+RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-$GUACAMOLE_VERSION-incubating.war && \
 	mv guacamole-$GUACAMOLE_VERSION-incubating.war /opt/tomcat/webapps/guacamole.war
 
 	
@@ -103,7 +103,7 @@ RUN mkdir /usr/lib/arm-linux-gnueabihf/freerdp/ && \
 
 
 # Downloading the CAS authentication module
-RUN curl -O http://apache.mirrors.tds.net/incubator/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz && \
+RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz && \
 	tar -xzf guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz && \
 	mv ./guacamole-auth-cas-$GUACAMOLE_VERSION-incubating/guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.jar /etc/guacamole/extensions && \
     rm guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz && \
@@ -111,7 +111,7 @@ RUN curl -O http://apache.mirrors.tds.net/incubator/guacamole/$GUACAMOLE_VERSION
 
 
 # Downloading the guacamole-auth-jdbc module for database authentication
-RUN curl -O http://apache.mirrors.lucidnetworks.net/incubator/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz && \
+RUN curl -O http://apache.mirrors.lucidnetworks.net/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz && \
 	tar -xzf guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz && \
 	mv ./guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating/mysql/guacamole-auth-jdbc-mysql-$GUACAMOLE_VERSION-incubating.jar /etc/guacamole/extensions && \
     rm guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz && \

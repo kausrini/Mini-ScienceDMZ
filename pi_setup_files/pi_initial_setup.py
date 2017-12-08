@@ -266,7 +266,9 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
     if wifi_ssid is None:
         with open(interfaces_file, 'a') as file:
             file.write(loopback_config + ethernet_config_internet)
+        return
 
+    # Wireless internet connection
     print('Adding WPA configuration to {} file'.format(wpa_config_file))
     if not os.path.isfile(wpa_config_backup):
         shutil.copy2(wpa_config_file, wpa_config_backup)

@@ -81,18 +81,18 @@ def check_dockerfile_links():
     ).format(settings.TOMCAT_VERSION, settings.TOMCAT_VERSION)
 
     guacamole_server = (
-        'http://apache.mirrors.tds.net/incubator/guacamole/{}' 
+        'http://apache.mirrors.tds.net/guacamole/{}' 
         '-incubating/source/guacamole-server-{}' 
         '-incubating.tar.gz'
     ).format(settings.GUACAMOLE_VERSION,settings.GUACAMOLE_VERSION)
 
     guacamole_client = (
-        'http://apache.mirrors.tds.net/incubator/guacamole/{}'
+        'http://apache.mirrors.tds.net/guacamole/{}'
         '-incubating/binary/guacamole-{}-incubating.war'
     ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
     guacamole_cas = (
-        'http://apache.mirrors.tds.net/incubator/guacamole/{}'
+        'http://apache.mirrors.tds.net/guacamole/{}'
         '-incubating/binary/guacamole-auth-cas-{}-incubating.tar.gz'
     ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
@@ -101,7 +101,7 @@ def check_dockerfile_links():
     ).format(settings.MYSQL_CONNECTOR_VERSION)
 
     guacamole_jdbc = (
-        'http://apache.mirrors.lucidnetworks.net/incubator/guacamole/{}'
+        'http://apache.mirrors.lucidnetworks.net/guacamole/{}'
         '-incubating/binary/guacamole-auth-jdbc-{}-incubating.tar.gz'
     ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 

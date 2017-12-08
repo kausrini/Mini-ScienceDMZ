@@ -43,7 +43,6 @@ fi
 
 # address with netmask
 current=$address/$netmask
-# send addresses to dynv6
+
+# Update ipv6 address with dynv6 service
 $bin "http://dynv6.com/api/update?hostname=$hostname&ipv6=$current&token=$token" 
-
-

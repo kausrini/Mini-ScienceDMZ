@@ -256,6 +256,7 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
         '\nauto eth1\n'
         'iface eth1 inet dhcp\n'
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
+        '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
     )
 
     if not os.path.isfile(interfaces_backup):

@@ -1,7 +1,7 @@
 #!/bin/sh -e
 token="YOUR_DYNV6_TOKEN_HERE"
 hostname="YOUR_DOMAIN_NAME_HERE"
-device="wlan0"
+device="YOUR_NETWORK_DEVICE_NAME_HERE"
 
 if [ "$token" = "YOUR_DYNV6_TOKEN_HERE" ]; then
   echo "[ERROR] Valid token is missing in the dynv6 script"

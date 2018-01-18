@@ -2,8 +2,8 @@
 The project designs, develops, and tests the deployment of a small device (Raspberry Pi) that functions as a firewall, large file transfer facility, and network performance monitor
 
 1. Follow the instructions on the official raspberry pi page to install Raspbian on a SD card.
-   1.1 We recommend the advanced setup option. Download the **Stretch-Lite** image and flash it using _Etcher_ tool.
-   https://www.raspberrypi.org/documentation/installation/installing-images/
+   1. We recommend the advanced setup option. Download the **Stretch-Lite** image and flash it using _Etcher_ tool.
+   1. https://www.raspberrypi.org/documentation/installation/installing-images/
 
 2. Create an account in https://dynv6.com/ and register a DOMAIN_NAME.
 

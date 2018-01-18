@@ -1,7 +1,8 @@
 # Mini-ScienceDMZ
 The project designs, develops, and tests the deployment of a small device (Raspberry Pi) that functions as a firewall, large file transfer facility, and network performance monitor
 
-1. Follow the instructions on the official raspberry pi page to install Raspbian on a SD card. 
+1. Follow the instructions on the official raspberry pi page to install Raspbian on a SD card.
+   1.1 We recommend the advanced setup option. Download the **Stretch-Lite** image and flash it using _Etcher_ tool.
    https://www.raspberrypi.org/documentation/installation/installing-images/
 
 2. Create an account in https://dynv6.com/ and register a DOMAIN_NAME.
@@ -12,9 +13,9 @@ The project designs, develops, and tests the deployment of a small device (Raspb
 
 5. Go to https://dynv6.com/docs/apis and obtain 'Your API token'. 
 
-6. Edit the dynv6_token.txt to replace 'TOKEN_WILL_REPLACE_THIS' with 'Your API token'. 
+6. Edit the _dynv6_token.txt_ file in the boot directory and replace _TOKEN_WILL_REPLACE_THIS_ with _Your API token_. 
 
-7. Edit the pi_settings.py and store the DOMAIN_NAME you registered in step 2 in the variable DOMAIN_NAME.
+7. Edit the _pi_settings.py_ and store the DOMAIN_NAME you registered in step 2 in the variable _DOMAIN_NAME_.
 
 8. Insert the sd card in the pi and connect power cable, HDMI, Keyboard to it.
 

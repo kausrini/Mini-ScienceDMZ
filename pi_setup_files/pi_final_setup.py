@@ -40,7 +40,7 @@ def upgrade_packages():
 
 # Installs all required packages for our application
 def install_packages():
-    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python-certbot-apache', 'python3-requests']
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests', 'python-certbot-apache']
 
     # Prefer IPV4 over IPV6 for downloading updates
     # subprocess.check_output(['sed', '-i', '--',
@@ -51,6 +51,12 @@ def install_packages():
     subprocess.call(['apt-get', 'update'])
     print('Installing the following packages {}'.format(", ".join(packages)))
     subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
+
+    #Installing certbot separately from source
+    subprocess.call(['wget', '-P', '/home/pi/','https://dl.eff.org/certbot-auto'])
+    subprocess.call(['sudo', 'chmod', 'a+x', '/home/pi/certbot-auto'])
+
+
 
     # Resetting the preferences to default
     # subprocess.check_output(['sed', '-i', '--',
@@ -99,7 +105,7 @@ def tls_configuration(email_address, test):
     # Update DNS Record before getting certificate
     subprocess.check_output('/etc/dns/dynv6.sh')
 
-    certbot_arguments = ['certbot', '-n', '--apache', '-d', settings.DOMAIN_NAME]
+    certbot_arguments = ['sudo', '/home/pi/certbot-auto', '-n', '--apache', '-d', settings.DOMAIN_NAME]
 
     if test:
         certbot_arguments.append('--staging')

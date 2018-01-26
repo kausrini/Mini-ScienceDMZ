@@ -26,9 +26,9 @@ The project designs, develops, and tests the deployment of a small device (Raspb
 
 12. sudo chmod 700 /boot/*.py
 
-13. sudo /boot/pi_initial_setup.py -s 'YOUR_WIFI_SSID' 
+13. sudo /boot/pi_initial_setup.py
    
-   Replace YOUR_WIFI_SSID with your wifi ssid. (Quotes is required only if the ssid has any whitespace characters)
+   
    Answer the prompt if the wifi network is WPA-Enterprise.
    If answered with yes, you will be prompted for username. Provide the username.
    Enter the wifi password when you are prompted for it.

@@ -254,7 +254,9 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
 
     ethernet_config_internet = (
         '\nauto eth1\n'
+        'allow-hotplug eth1\n'
         'iface eth1 inet dhcp\n'
+        'iface eth1 inet6 dhcp\n'
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
         '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
     )

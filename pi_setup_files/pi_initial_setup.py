@@ -249,12 +249,11 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
         'iface eth0 inet static\n'
         '\taddress 192.168.7.1\n'
         '\tnetmask 255.255.255.0\n'
-        '\tnetwork 192.168.7.0'
+        '\tnetwork 192.168.7.0\n'
     )
 
     ethernet_config_internet = (
         '\nauto eth1\n'
-        'allow-hotplug eth1\n'
         'iface eth1 inet dhcp\n'
         'iface eth1 inet6 dhcp\n'
         '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
@@ -269,7 +268,7 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
     # Wired internet connection
     if wifi_ssid is None:
         with open(interfaces_file, 'a') as file:
-            file.write(loopback_config + ethernet_config_internet)
+            file.write(loopback_config + ethernet_config_instrument + ethernet_config_internet)
         return
 
     # Wireless internet connection

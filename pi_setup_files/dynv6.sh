@@ -36,7 +36,7 @@ fi
 # Update ipv4 address with dynv6 service
 $bin "http://ipv4.dynv6.com/api/update?hostname=$hostname&ipv4=auto&token=$token"
 
-if [ ! -z "$address" ]; then
+if [ -z "$address" ]; then
   echo "no IPv6 address found"
   exit 0
 fi

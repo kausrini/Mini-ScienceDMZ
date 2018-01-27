@@ -36,7 +36,7 @@ def user_prompt(prompt_message):
 
 # Check if wireless or wired connection and fetch parameters accordingly
 def fetch_wireless_parameters():
-    if user_prompt('Are you connecting the raspberry pi to a wireless connection'):
+    if user_prompt('Are you connecting the raspberry pi to a wireless internet connection'):
         while True:
             sys.stdout.write('Enter the Wireless network SSID : ')
             wifi_ssid = input()

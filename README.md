@@ -28,8 +28,8 @@ The project designs, develops, and tests the deployment of a small device (Raspb
 
 13. sudo /boot/pi_initial_setup.py
    
-   
-   Answer the prompt if the wifi network is WPA-Enterprise.
+   Answer the prompt if the pi will be using a wireless internet connection. 
+   If answered with yes, you will be prompted to answer if the wifi network is WPA-Enterprise.
    If answered with yes, you will be prompted for username. Provide the username.
    Enter the wifi password when you are prompted for it.
    Change the default raspberry pi password to a NEW_PASSWORD when prompted for it.

@@ -3,13 +3,13 @@ import os
 
 current_dir = os.getcwd()
 
-sender = ''     					# Sender's email address
+sender = 'minidmz@iu.edu'     					# Sender's email address
 
 receiver = ''						# Receiver's email address
 
 smtp_server = 'mail-relay.iu.edu'			# Email relay to be used
 
-path_for_logs = ''					# Location for the logs to be sent e.g. /var/log/syslog
+path_for_logs = '/var/log/syslog'					# Location for the logs to be sent e.g. /var/log/syslog
 
 
 

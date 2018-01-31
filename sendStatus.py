@@ -42,7 +42,7 @@ try:
         conn.login(username,password)
         conn.sendmail(sender,receiver,msg.as_string())
         conn.quit()
-        
+
 
     # Check if backup log file exists. THis branch will only be executed once.
     if not os.path.isfile(path_for_backup):

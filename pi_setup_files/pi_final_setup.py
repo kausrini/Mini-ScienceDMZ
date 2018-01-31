@@ -272,6 +272,7 @@ def setup_cronjobs():
         '0 * * * * /etc/dns/dynv6.sh\n'
         '@reboot docker start sql_container\n'
         '@reboot docker start guacamole_container\n'
+        '0 * * * * python /home/pi/minidmz/sendStatus.py\n'
     )
 
     cron_file_name = 'temp_cron'

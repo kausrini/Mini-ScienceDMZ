@@ -16,6 +16,7 @@ import difflib
 import shutil
 import os
 import ntpath
+import subprocess
 from email_config import sender,receiver,smtp_server,path_for_logs,path_for_backup,path_for_diff
 
 # Uncomment this and enter the path for secrets.py file which we will pull the username and password from.
@@ -30,7 +31,16 @@ from email.mime.application import MIMEApplication
 
 try:   
     # Function takes 4 arguments. Sender's email id, receiver's email id, the smtp server that you'll be using and the path to the log file. These parameters should be defined in the email_config file. Customize these to meet your needs.
-    
+    def generate_docker_logs():
+        file_ = file("docker_log","wb")
+        d = subprocess.Popen(["docker","logs","guacamole_container"], stdout=subprocess.PIPE)
+        file_.write(d.stdout.read())
+        file_.close()
+        current_dir = os.getcwd()
+        path_for_logs.append(current_dir+"/docker_log")
+        path_for_backup.append(current_dir+"/docker_log_backup")
+        path_for_diff.append(current_dir+"/docker_log_diff")
+        
     def sendDeviceStatus(sender_email_id,receiver_email_id,smtp_server_name,log_path):
         print "sending email"
         # Create the email message.
@@ -39,7 +49,7 @@ try:
         msg['From'] = sender_email_id
         msg['To'] = ", ".join(receiver_email_id)
         msg.preamble = 'This is the latest device log. Please inspect to check device status'
-        part = MIMEBase('application', "octet-stream")
+        msg.attach(MIMEText("Syslog and Docker container logs are attached with this email"))
         try:
             for p in log_path:
                 attachment = MIMEApplication(open(p, "r").read(), _subtype="txt")
@@ -98,7 +108,12 @@ try:
                     backup_log_file.close()
             
         return final_paths
-    
+
+    try:
+        generate_docker_logs()
+    except:
+        print "Error generating docker logs. Check if Docker is configured."
+        
     rslt = prepare_logs(path_for_logs,path_for_backup,path_for_diff)
     if rslt:
         sendDeviceStatus(sender,receiver,smtp_server,rslt)

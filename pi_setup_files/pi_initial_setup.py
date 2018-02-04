@@ -197,10 +197,10 @@ def dns_configuration(base_path, wireless):
                              path_name + file_name])
 
 
-# Create Wifi configuration for connecting to Wireless network
-# Adds script to initialize firewall rules
+# Create Wifi configuration for connecting to Wireless network or not if wired.
+# Creates the interface configuration for the scientific instrument.
 def network_configuration(wifi_ssid, wpa_username, wpa_password):
-    print('Setting up the wifi configuration')
+    print('Setting up the internet configuration')
 
     wpa_config_file = '/etc/wpa_supplicant/wpa_supplicant.conf'
     wpa_config_backup = '/etc/wpa_supplicant/wpa_supplicant_backup.conf'
@@ -249,27 +249,40 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
         'iface eth0 inet static\n'
         '\taddress 192.168.7.1\n'
         '\tnetmask 255.255.255.0\n'
-        '\tnetwork 192.168.7.0\n'
+        '\tnetwork 192.168.7.0\n\n'
     )
 
-    ethernet_config_internet = (
-        '\nauto eth1\n'
-        'iface eth1 inet dhcp\n'
-        'iface eth1 inet6 dhcp\n'
-        '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
-        '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
-    )
-
+    # Taking a backup of interfaces file
     if not os.path.isfile(interfaces_backup):
         shutil.copy2(interfaces_file, interfaces_backup)
     else:
         shutil.copy2(interfaces_backup, interfaces_file)
 
+    with open(interfaces_file, 'a') as file:
+        file.write(loopback_config + ethernet_config_instrument)
+
+    #ethernet_config_internet = (
+    #    '\nauto eth1\n'
+    #    'iface eth1 inet dhcp\n'
+    #    'iface eth1 inet6 dhcp\n'
+    #    '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
+    #    '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
+    #)
+
     # Wired internet connection
     if wifi_ssid is None:
-        with open(interfaces_file, 'a') as file:
-            file.write(loopback_config + ethernet_config_instrument + ethernet_config_internet)
-        return
+        if settings.check_internet_connectivity():
+            print('The network settings have been configured successfully')
+        else:
+            ifconfig_output = subprocess.check_output(['ifconfig']).decode("utf-8").strip()
+            if 'eth1' not in ifconfig_output:
+                print('Exiting the setup\n'
+                      'Please connect the raspberry pi to an ethernet connection using the ethernet adapter and'
+                      'restart the setup.')
+            else:
+                print('Are you sure that the ethernet connection is internet connected?\n'
+                      'Fix the connection and restart the setup.')
+            sys.exit(1)
 
     # Wireless internet connection
     print('Adding WPA configuration to {} file'.format(wpa_config_file))
@@ -282,7 +295,7 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
 
     print('Adding WIFI configuration to {} file'.format(interfaces_file))
     with open(interfaces_file, 'a') as file:
-        file.write(loopback_config + wifi_config + ethernet_config_instrument)
+        file.write(wifi_config)
 
 
 # Rebooting the raspberry pi

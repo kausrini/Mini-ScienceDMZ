@@ -3,7 +3,7 @@
 import argparse
 import os
 import shutil
-import socket
+
 import subprocess
 import sys
 import time
@@ -293,31 +293,11 @@ def clean_up_setup():
     subprocess.check_output(['reboot', 'now'])
 
 
-# Checks internet connectivity by trying tcp connect to archive.raspberrypi.org
-# Fails in case archive.raspberrypi.org is down (highly unlikely) or if dns resolver fails
-def check_internet_connectivity():
-    print('Testing Internet Connectivity')
-    connected = False
-    try:
-        host = 'archive.raspberrypi.org'
-        socket.create_connection((host, 80))
-        connected = True
-    except OSError:
-        pass
-
-    if not connected:
-        print('[ERROR] No internet connectivity. Please check if pi connected to wifi network'
-              'If not verify the wpa_supplicant config file'
-              'If connected to Wireless network, check if archive.raspberrypi.org is down (Unlikely!)')
-        sys.exit()
-
-    print('The pi is has internet connectivity.')
-
-
 if __name__ == '__main__':
     arguments = fetch_arguments()
     settings.test_values()
-    check_internet_connectivity()
+    if not settings.check_internet_connectivity():
+        sys.exit(1)
     email = arguments.email
     testing = arguments.testing
     install_packages()

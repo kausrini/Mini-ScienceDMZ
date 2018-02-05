@@ -269,6 +269,7 @@ def setup_cronjobs():
     # Start docker containers on boot (Todo Python script for this with proper checks of existence of containers)
     cron_jobs = (
         '@reboot /etc/dns/dynv6.sh\n'
+        '@reboot /etc/firewall/iptables.sh\n'
         '0 * * * * /etc/dns/dynv6.sh\n'
         '@reboot docker start sql_container\n'
         '@reboot docker start guacamole_container\n'

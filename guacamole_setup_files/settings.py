@@ -38,6 +38,6 @@ def fetch_file_directories():
         DIRECTORY_BASE : base_directory,
         DIRECTORY_DATABASE : base_directory + '/db',
         DIRECTORY_GUACAMOLE : base_directory + '/dock',
-        DIRECTORY_GENERATED_FILES : base_directory + '/generated_files'
+        DIRECTORY_GENERATED_FILES : base_directory + '/..' + '/generated_files'
     }
     return directories

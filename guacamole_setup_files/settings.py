@@ -3,7 +3,7 @@
 import os
 
 # Change to appropriate domain name
-DOMAIN_NAME = 'mini-dmz-developer.dynv6.net'
+DOMAIN_NAME = ''
 
 # CAS Extension parameters for Guacamole
 # Note how the url ends in cas. It MUST BE the base cas server.

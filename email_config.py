@@ -1,7 +1,7 @@
 import os
 import ntpath
 
-current_dir = os.getcwd()
+current_dir = os.path.dirname(__file__)
 
 sender = 'minidmz@iu.edu'     					# Sender's email address
 

@@ -82,18 +82,18 @@ def check_dockerfile_links():
 
     guacamole_server = (
         'http://apache.mirrors.tds.net/guacamole/{}' 
-        '-incubating/source/guacamole-server-{}' 
-        '-incubating.tar.gz'
+        '/source/guacamole-server-{}' 
+        '.tar.gz'
     ).format(settings.GUACAMOLE_VERSION,settings.GUACAMOLE_VERSION)
 
     guacamole_client = (
         'http://apache.mirrors.tds.net/guacamole/{}'
-        '-incubating/binary/guacamole-{}-incubating.war'
+        '/binary/guacamole-{}.war'
     ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
     guacamole_cas = (
         'http://apache.mirrors.tds.net/guacamole/{}'
-        '-incubating/binary/guacamole-auth-cas-{}-incubating.tar.gz'
+        '/binary/guacamole-auth-cas-{}.tar.gz'
     ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
     mysql_connector = (
@@ -102,7 +102,7 @@ def check_dockerfile_links():
 
     guacamole_jdbc = (
         'http://apache.mirrors.lucidnetworks.net/guacamole/{}'
-        '-incubating/binary/guacamole-auth-jdbc-{}-incubating.tar.gz'
+        '/binary/guacamole-auth-jdbc-{}.tar.gz'
     ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
     if not url_exists(tomcat):

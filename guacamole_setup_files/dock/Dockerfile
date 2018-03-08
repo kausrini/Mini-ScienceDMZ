@@ -70,10 +70,10 @@ RUN apt-get update && apt-get install -y \
 
 
 # Downloading and Installing Guacamole Server
-RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION-incubating/source/guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz && \	
-    tar -xzf guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz -C /home && \
-    rm guacamole-server-$GUACAMOLE_VERSION-incubating.tar.gz && \
-    cd /home/guacamole-server-$GUACAMOLE_VERSION-incubating/ && \
+RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION/source/guacamole-server-$GUACAMOLE_VERSION.tar.gz && \	
+    tar -xzf guacamole-server-$GUACAMOLE_VERSION.tar.gz -C /home && \
+    rm guacamole-server-$GUACAMOLE_VERSION.tar.gz && \
+    cd /home/guacamole-server-$GUACAMOLE_VERSION/ && \
     ./configure --with-init-dir=/etc/init.d && \
     make && \
     make install && \
@@ -81,8 +81,8 @@ RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION-incubatin
 
 	
 # Downloading Guacamole-Client war file  and moving to tomcat webapp folder
-RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-$GUACAMOLE_VERSION-incubating.war && \
-	mv guacamole-$GUACAMOLE_VERSION-incubating.war /opt/tomcat/webapps/guacamole.war
+RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION/binary/guacamole-$GUACAMOLE_VERSION.war && \
+	mv guacamole-$GUACAMOLE_VERSION.war /opt/tomcat/webapps/guacamole.war
 
 	
 # Setting up the required folders for guacamole
@@ -97,25 +97,25 @@ COPY guacamole.properties /etc/guacamole/
 	
 # Guacamole configurations for ARM architecture
 RUN mkdir /usr/lib/arm-linux-gnueabihf/freerdp/ && \
-    ln -s /home/guacamole-server-$GUACAMOLE_VERSION-incubating/src/protocols/rdp/.libs/guacsnd-client.so  /usr/lib/arm-linux-gnueabihf/freerdp/guacsnd-client.so && \
-    ln -s /home/guacamole-server-$GUACAMOLE_VERSION-incubating/src/protocols/rdp/.libs/guacdr-client.so /usr/lib/arm-linux-gnueabihf/freerdp/guacdr-client.so    && \
+    ln -s /home/guacamole-server-$GUACAMOLE_VERSION/src/protocols/rdp/.libs/guacsnd-client.so  /usr/lib/arm-linux-gnueabihf/freerdp/guacsnd-client.so && \
+    ln -s /home/guacamole-server-$GUACAMOLE_VERSION/src/protocols/rdp/.libs/guacdr-client.so /usr/lib/arm-linux-gnueabihf/freerdp/guacdr-client.so    && \
     chown tomcat:tomcat /etc/guacamole/guacamole.properties
 
 
 # Downloading the CAS authentication module
-RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz && \
-	tar -xzf guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz && \
-	mv ./guacamole-auth-cas-$GUACAMOLE_VERSION-incubating/guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.jar /etc/guacamole/extensions && \
-    rm guacamole-auth-cas-$GUACAMOLE_VERSION-incubating.tar.gz && \
-	rm -rf guacamole-auth-cas-$GUACAMOLE_VERSION-incubating
+RUN curl -O http://apache.mirrors.tds.net/guacamole/$GUACAMOLE_VERSION/binary/guacamole-auth-cas-$GUACAMOLE_VERSION.tar.gz && \
+	tar -xzf guacamole-auth-cas-$GUACAMOLE_VERSION.tar.gz && \
+	mv ./guacamole-auth-cas-$GUACAMOLE_VERSION/guacamole-auth-cas-$GUACAMOLE_VERSION.jar /etc/guacamole/extensions && \
+    rm guacamole-auth-cas-$GUACAMOLE_VERSION.tar.gz && \
+	rm -rf guacamole-auth-cas-$GUACAMOLE_VERSION
 
 
 # Downloading the guacamole-auth-jdbc module for database authentication
-RUN curl -O http://apache.mirrors.lucidnetworks.net/guacamole/$GUACAMOLE_VERSION-incubating/binary/guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz && \
-	tar -xzf guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz && \
-	mv ./guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating/mysql/guacamole-auth-jdbc-mysql-$GUACAMOLE_VERSION-incubating.jar /etc/guacamole/extensions && \
-    rm guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating.tar.gz && \
-	rm -rf guacamole-auth-jdbc-$GUACAMOLE_VERSION-incubating 
+RUN curl -O http://apache.mirrors.lucidnetworks.net/guacamole/$GUACAMOLE_VERSION/binary/guacamole-auth-jdbc-$GUACAMOLE_VERSION.tar.gz && \
+	tar -xzf guacamole-auth-jdbc-$GUACAMOLE_VERSION.tar.gz && \
+	mv ./guacamole-auth-jdbc-$GUACAMOLE_VERSION/mysql/guacamole-auth-jdbc-mysql-$GUACAMOLE_VERSION.jar /etc/guacamole/extensions && \
+    rm guacamole-auth-jdbc-$GUACAMOLE_VERSION.tar.gz && \
+	rm -rf guacamole-auth-jdbc-$GUACAMOLE_VERSION 
 
 
 # Downloading the MySQL jdbc connector for database authentication	

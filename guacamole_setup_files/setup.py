@@ -152,18 +152,27 @@ def create_docker_network():
     return docker_network_name
 
 
-# Obtains the ip address of the equipment.
+# Obtains the list of ip addresses connected to the raspberry pi with rdp enabled
 def fetch_equipment_ip():
     print('Fetching Equipment IP address')
+
+    # Use this ip by default in case of no ip issued.
+    # The ip address update script should later update this
+    # ip address to the correct ip addressed of the rdp enabled device.
+    default_ip = ['192.168.7.2']
+
+    # Using a list of ip address for a future case where single raspberry pi is connected to
+    # multiple rdp enabled devices. Obviously return the entire list insted of list[0] for
+    # such a case.
+    ip_address_list = []
+
     try:
         with open('/var/lib/dhcp/dhcpd.leases', 'r') as file:
             dhcpd_leases = file.read().strip()
     except FileNotFoundError as error:
         print("[Error] DNSmasq lease file not created yet. No leases issued yet? "
               "\nCheck DNSmasq and if equipment connected")
-        sys.exit()
-
-    ip_address_list = []
+        return default_ip
 
     for line in dhcpd_leases.split('\n'):
         if 'lease ' in line and ' {' in line:
@@ -172,33 +181,38 @@ def fetch_equipment_ip():
                 ip_address_list.append(ip_lease_address)
 
     if not ip_address_list:
-        print("[Error] No lease Issued by dhcp server."
+        print("[ERROR] No lease Issued by dhcp server."
               "\nCheck dhcp server and if the equipment is connected")
-        sys.exit()
+        return default_ip
 
     nmap_call_arguments = ['nmap', '-Pn'] + ip_address_list + ['-p', '3389', '--open']
     nmap_output = subprocess.check_output(nmap_call_arguments).decode("utf-8").strip()
 
     ip_address = None
     if '3389/tcp open  ms-wbt-server' not in nmap_output:
-        print("[Error] RDP enabled device not connected to raspberry pi. Resolve issue and retry again")
+        print("[ERROR] RDP enabled device not connected to raspberry pi.")
     else:
         nmap_second_line = nmap_output.split("\n")[1].strip()
         ip_address = nmap_second_line.split(' ')[-1:]
 
     if not ip_address:
-        print('Unable to retrieve IP address of equipment.Exiting Code.')
-        sys.exit()
+        print('[ERROR] Unable to retrieve IP address of equipment.Exiting Code.')
+        return default_ip
     else:
         print ('Ip address of the equipment is {}'.format(ip_address[0]))
 
-    return ip_address[0]
+    return ip_address
 
 
 # Builds the sql container from the sql image
 def build_sql_container(docker_network_name, mysql_root_password, mysql_user_password, administrator, new_database):
 
-    ip_address = fetch_equipment_ip()
+    ip_address_list = fetch_equipment_ip()
+
+    # Assuming only one device connected to our raspberry pi for now
+    # In future loop through this list and setup multiple equipments connected
+    # to the raspberry pi.
+    ip_address = ip_address_list[0]
 
     if new_database:
         print('Creating docker volume {} for mysql'.format(DOCKER_MYSQL_VOLUME))

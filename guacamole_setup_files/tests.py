@@ -68,7 +68,6 @@ def url_exists(url):
 
 
 # This function is used to check if all the links specified in the Dockerfile(s) are valid.
-# Todo: create clear instructions to fix link related errors
 def check_dockerfile_links():
     success = True
     # Following links are present in the guacamole Dockerfile
@@ -84,7 +83,7 @@ def check_dockerfile_links():
         'http://apache.mirrors.tds.net/guacamole/{}' 
         '/source/guacamole-server-{}' 
         '.tar.gz'
-    ).format(settings.GUACAMOLE_VERSION,settings.GUACAMOLE_VERSION)
+    ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
     guacamole_client = (
         'http://apache.mirrors.tds.net/guacamole/{}'
@@ -143,10 +142,10 @@ def check_rdp_connection():
     try:
         with open('/var/lib/dhcp/dhcpd.leases', 'r') as file:
             dhcpd_leases = file.read().strip()
-    except FileNotFoundError as error:
+    except FileNotFoundError:
         print("[Error] DNSmasq lease file not created yet. No leases issued yet? "
-              "\nCheck DNSmasq and if equipment connected")
-        sys.exit()
+              "\nCheck DNSmasq and if the RDP enabled device is connected")
+        return
 
     ip_address_list = []
 
@@ -159,7 +158,7 @@ def check_rdp_connection():
     if not ip_address_list:
         print("[Error] No lease Issued by dhcp server."
               "\nCheck dhcp server and if the equipment is connected")
-        sys.exit()
+        return
 
     nmap_call_arguments = ['nmap', '-Pn'] + ip_address_list + ['-p', '3389', '--open']
     nmap_output = subprocess.check_output(nmap_call_arguments).decode("utf-8").strip()
@@ -167,8 +166,8 @@ def check_rdp_connection():
     if '3389/tcp open  ms-wbt-server' not in nmap_output:
         print("[Error] RDP enabled device not connected to raspberry pi. "
               "\nRDP may not be enabled or the equipment might not be connected."
-              "\nResolve issue and retry again")
-        sys.exit()
+              )
+        return
 
     print("[Success] Equipment is connected to raspberry pi and RDP is enabled.")
 

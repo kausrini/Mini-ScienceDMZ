@@ -136,42 +136,6 @@ def check_dockerfile_links():
         print('[Success] All links specified in the Dockerfiles are valid')
 
 
-# Checks if the windows system is connected to our PI and RDP port is open
-def check_rdp_connection():
-    print("Checking if the equipment is connected to raspberry Pi and RDP is enabled")
-    try:
-        with open('/var/lib/dhcp/dhcpd.leases', 'r') as file:
-            dhcpd_leases = file.read().strip()
-    except FileNotFoundError:
-        print("[Error] DNSmasq lease file not created yet. No leases issued yet? "
-              "\nCheck DNSmasq and if the RDP enabled device is connected")
-        return
-
-    ip_address_list = []
-
-    for line in dhcpd_leases.split('\n'):
-        if 'lease ' in line and ' {' in line:
-            ip_address = line[line.find('lease ') + 6: line.find(' {')]
-            if ip_address not in ip_address_list:
-                ip_address_list.append(ip_address)
-
-    if not ip_address_list:
-        print("[Error] No lease Issued by dhcp server."
-              "\nCheck dhcp server and if the equipment is connected")
-        return
-
-    nmap_call_arguments = ['nmap', '-Pn'] + ip_address_list + ['-p', '3389', '--open']
-    nmap_output = subprocess.check_output(nmap_call_arguments).decode("utf-8").strip()
-
-    if '3389/tcp open  ms-wbt-server' not in nmap_output:
-        print("[Error] RDP enabled device not connected to raspberry pi. "
-              "\nRDP may not be enabled or the equipment might not be connected."
-              )
-        return
-
-    print("[Success] Equipment is connected to raspberry pi and RDP is enabled.")
-
-
 # Checks if valid domain name entered in settings.py file
 def check_domain_name(domain_name):
     if not len(domain_name):
@@ -185,7 +149,6 @@ def run_tests():
     check_directories_files(directories)
     check_domain_name(settings.DOMAIN_NAME)
     check_dockerfile_links()
-    check_rdp_connection()
     print("All tests are complete and were successful")
 
 

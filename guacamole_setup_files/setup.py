@@ -29,6 +29,23 @@ def fetch_argument():
     return arguments
 
 
+def user_prompt(prompt_message):
+    while True:
+        sys.stdout.write(prompt_message + '? [Y/n] ')
+
+        valid_choices = {"yes": True, "y": True, "ye": True,
+                         "no": False, "n": False}
+
+        choice = input().lower()
+
+        if choice in valid_choices:
+            break
+        else:
+            print("Please respond with 'yes' or 'no' (or 'y' or 'n').")
+
+    return valid_choices[choice]
+
+
 # Creates the initial directory structure
 def create_directory_structure(directories):
     if not os.path.isfile(directories[settings.DIRECTORY_BASE] + '/tests.py'):
@@ -152,14 +169,10 @@ def create_docker_network():
     return docker_network_name
 
 
-# Obtains the list of ip addresses connected to the raspberry pi with rdp enabled
+# Returns a list of ip addresses connected to the raspberry pi with rdp enabled.
+# If none detected, returns empty list
 def fetch_equipment_ip():
-    print('Fetching Equipment IP address')
-
-    # Use this ip by default in case of no ip issued.
-    # The ip address update script should later update this
-    # ip address to the correct ip addressed of the rdp enabled device.
-    default_ip = ['192.168.7.2']
+    print('Fetching equipment IP address')
 
     # Using a list of ip address for a future case where single raspberry pi is connected to
     # multiple rdp enabled devices. Obviously return the entire list insted of list[0] for
@@ -170,10 +183,11 @@ def fetch_equipment_ip():
         with open('/var/lib/dhcp/dhcpd.leases', 'r') as file:
             dhcpd_leases = file.read().strip()
     except FileNotFoundError as error:
-        print("[Error] DNSmasq lease file not created yet. No leases issued yet? "
-              "\nCheck DNSmasq and if equipment connected")
-        return default_ip
+        print("[Error] dhcp lease file {} not created yet. No leases issued yet! "
+              "\nCheck if dhcpd and if equipment connected")
+        return ip_address_list
 
+    # Fetch list of ip addresses from dhcp lease
     for line in dhcpd_leases.split('\n'):
         if 'lease ' in line and ' {' in line:
             ip_lease_address = line[line.find('lease ') + 6: line.find(' {')]
@@ -181,27 +195,28 @@ def fetch_equipment_ip():
                 ip_address_list.append(ip_lease_address)
 
     if not ip_address_list:
-        print("[ERROR] No lease Issued by dhcp server."
-              "\nCheck dhcp server and if the equipment is connected")
-        return default_ip
+        print("[ERROR] No lease Issued by dhcpd."
+              "\nCheck dhcpd  and if the equipment is connected")
+        return ip_address_list
 
+    # Port scan dhcp addresses present in the dhcpd lease file for RDP device
     nmap_call_arguments = ['nmap', '-Pn'] + ip_address_list + ['-p', '3389', '--open']
     nmap_output = subprocess.check_output(nmap_call_arguments).decode("utf-8").strip()
 
-    ip_address = None
+    # Ip address list of RDP enabled devices
+    rdp_enabled_devices = None
     if '3389/tcp open  ms-wbt-server' not in nmap_output:
         print("[ERROR] RDP enabled device not connected to raspberry pi.")
     else:
         nmap_second_line = nmap_output.split("\n")[1].strip()
-        ip_address = nmap_second_line.split(' ')[-1:]
+        rdp_enabled_devices = nmap_second_line.split(' ')[-1:]
 
-    if not ip_address:
-        print('[ERROR] Unable to retrieve IP address of equipment.Exiting Code.')
-        return default_ip
+    if not rdp_enabled_devices:
+        print('[ERROR] The device connected to the raspberry pi does not have RDP enabled')
     else:
-        print ('Ip address of the equipment is {}'.format(ip_address[0]))
+        print('Successful extraction of equipment ip address')
 
-    return ip_address
+    return rdp_enabled_devices
 
 
 # Builds the sql container from the sql image
@@ -209,10 +224,24 @@ def build_sql_container(docker_network_name, mysql_root_password, mysql_user_pas
 
     ip_address_list = fetch_equipment_ip()
 
-    # Assuming only one device connected to our raspberry pi for now
-    # In future loop through this list and setup multiple equipments connected
-    # to the raspberry pi.
-    ip_address = ip_address_list[0]
+    ip_address = "192.168.7.2"
+
+    if ip_address_list:
+        # Assuming only one device connected to our raspberry pi for now
+        # In future loop through this list and setup multiple equipments connected
+        # to the raspberry pi.
+        ip_address = ip_address_list[0]
+        user_choice = True
+    else:
+        user_choice = user_prompt("There were no valid ip addresses detected for the equipment connected to "
+                                  "the raspberry pi. \nIf you continue the setup, you might need to manually "
+                                  "update the ip address using the script provided.\n"
+                                  "Would you like to continue the setup")
+
+    if not user_choice:
+        sys.exit()
+
+    print('Configuring the ip address {} for the equipment'.format(ip_address))
 
     if new_database:
         print('Creating docker volume {} for mysql'.format(DOCKER_MYSQL_VOLUME))

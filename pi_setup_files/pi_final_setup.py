@@ -103,7 +103,11 @@ def tls_configuration(email_address, test):
         return
 
     # Update DNS Record before getting certificate
-    subprocess.check_output('/etc/dns/dynv6.sh')
+    try:
+        subprocess.check_output('/etc/dnss/dynv6.sh')
+    except OSError as e:
+        if 'No such file or directory':
+            print('[Warning] No dynamic dns script detected.')
 
     certbot_arguments = ['sudo', '/home/pi/certbot-auto', '-n', '--apache', '-d', settings.DOMAIN_NAME]
 
@@ -264,23 +268,26 @@ def guacamole_configuration():
 
 
 def setup_cronjobs():
+
     # Update dns after reboot.
     # Update dns every one hour.
     # Start docker containers on boot (Todo Python script for this with proper checks of existence of containers)
-    cron_jobs = (
-        '@reboot /etc/dns/dynv6.sh\n'
-        '@reboot /etc/firewall/iptables.sh\n'
-        '0 * * * * /etc/dns/dynv6.sh\n'
-        '@reboot docker start sql_container\n'
-        '@reboot docker start guacamole_container\n'
+    cron_jobs_list = [
+        '@reboot /etc/firewall/iptables.sh\n',
+        '@reboot docker start sql_container\n',
+        '@reboot docker start guacamole_container\n',
         '0 * * * * python /home/pi/minidmz/sendStatus.py\n'
-    )
+    ]
+
+    # Add cronjob if the dynv6 script exists
+    if os.path.exists('/etc/dns/dynv6.sh'):
+        cron_jobs_list.append('@reboot /etc/dns/dynv6.sh\n0 * * * * /etc/dns/dynv6.sh\n')
 
     cron_file_name = 'temp_cron'
     file_path = '/tmp/' + cron_file_name
 
     with open(file_path, 'w') as file:
-        file.write(cron_jobs)
+        file.write(''.join(cron_jobs_list))
 
     subprocess.check_output(['crontab', file_path])
     os.remove(file_path)

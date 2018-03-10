@@ -17,6 +17,20 @@ def file_directory():
     return path
 
 
+# Obtain command line arguments
+def fetch_argument():
+    parser = argparse.ArgumentParser(description='Initial Pi Setup')
+
+    parser.add_argument('-d', '--nodns',
+                        help='Skip configuring dynamic dns. Users are expected to configure their domain name as they '
+                             'see fit.',
+                        action='store_true'
+                        )
+
+    input_arguments = parser.parse_args()
+    return input_arguments
+
+
 def user_prompt(prompt_message):
     while True:
         sys.stdout.write(prompt_message + '? [Y/n] ')
@@ -141,7 +155,6 @@ def firewall_configuration(base_path):
     subprocess.check_output(['chown', 'root', firewall_path + firewall_script_name])
 
 
-
 # Create the dynamic dns configuration for the raspberry pi
 def dns_configuration(base_path, wireless):
     print('Setting up the dynamic dns configuration')
@@ -200,12 +213,8 @@ def dns_configuration(base_path, wireless):
 
 # Create Wifi configuration for connecting to Wireless network or not if wired.
 # Creates the interface configuration for the scientific instrument.
-def network_configuration(wifi_ssid, wpa_username, wpa_password):
+def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dns):
     print('Setting up the internet configuration')
-
-    # For static ip configuration
-    dhcpcd_config_file = '/etc/dhcpcd.conf'
-    dhcpcd_config_file_backup = '/etc/dhcpcd_backup.conf'
 
     # For wifi configuration
     wpa_config_file = '/etc/wpa_supplicant/wpa_supplicant.conf'
@@ -213,25 +222,10 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
     interfaces_file = '/etc/network/interfaces'
     interfaces_backup = interfaces_file + '_backup'
 
-    # Taking a backup of dhcpcd file
-    #if not os.path.isfile(dhcpcd_config_file_backup):
-    #    shutil.copy2(dhcpcd_config_file, dhcpcd_config_file_backup)
-    #else:
-    #    shutil.copy2(dhcpcd_config_file_backup, dhcpcd_config_file)
-
     loopback_config = (
         '\nauto lo\n'
         'iface lo inet loopback\n'
     )
-
-    #dhcpcd_config = (
-    #    '\n\ninterface eth0\n'
-    #    'static ip_address=192.168.7.1/24\n'
-    #    #'static routers=192.168.7.1\n'
-    #)
-
-    #with open(dhcpcd_config_file, 'a') as file:
-    #    file.write(dhcpcd_config)
 
     ethernet_config_instrument = (
         '\nauto eth0\n'
@@ -247,13 +241,10 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
     else:
         shutil.copy2(interfaces_backup, interfaces_file)
 
-
     ethernet_config_internet = (
         '\nauto eth1\n'
         'iface eth1 inet dhcp\n'
         'iface eth1 inet6 dhcp\n'
-        #'\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
-        #'\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
     )
 
     # Wired internet connection
@@ -261,31 +252,6 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
 
         with open(interfaces_file, 'a') as file:
             file.write(loopback_config + ethernet_config_instrument + ethernet_config_internet)
-
-        ethernet_commands = [
-            ['sudo', 'dhclient', '-4', '-r', 'eth1'],
-            ['sudo', 'dhclient', '-6', '-r', 'eth1'],
-            ['sudo', 'ifconfig', 'eth1', 'down'],
-            ['sudo', 'ifconfig', 'eth1', 'up'],
-            ['sudo', 'dhclient', '-4', 'eth1'],
-            ['sudo', 'dhclient', '-6', 'eth1']
-        ]
-
-        #for command in ethernet_commands:
-        #    subprocess.check_output(command)
-
-       # if settings.check_internet_connectivity():
-       #     print('The network settings have been configured successfully')
-       # else:
-       #     ifconfig_output = subprocess.check_output(['ifconfig']).decode("utf-8").strip()
-       #     if 'eth1' not in ifconfig_output:
-       #         print('Exiting the setup\n'
-       #               'Please connect the raspberry pi to an ethernet connection using the ethernet adapter and'
-       #               'restart the setup.')
-       #     else:
-       #         print('Are you sure that the ethernet connection is internet connected?\n'
-       #               'Fix the connection and restart the setup.')
-       #     sys.exit(1)
         return
 
     # Wireless internet connection
@@ -312,14 +278,16 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
 
     final_wpa_config = '\nnetwork={\n' + wpa_config + '}\n'
 
-    wifi_config = (
-        '\nauto wlan0\n'
-        'allow-hotplug wlan0\n'
-        'iface wlan0 inet dhcp\n'
+    wifi_config_list = [
+        '\nauto wlan0\n',
+        'allow-hotplug wlan0\n',
+        'iface wlan0 inet dhcp\n',
         '\twpa-conf /etc/wpa_supplicant/wpa_supplicant.conf\n'
-        '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
-        '\tpost-up /bin/bash /etc/dns/dynv6.sh\n'
-    )
+        # '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
+    ]
+
+    if not no_dns:
+        wifi_config_list.append('\tpost-up /bin/bash /etc/dns/dynv6.sh\n')
 
     print('Adding WPA configuration to {} file'.format(wpa_config_file))
     if not os.path.isfile(wpa_config_backup):
@@ -331,7 +299,7 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password):
 
     print('Adding WIFI configuration to {} file'.format(interfaces_file))
     with open(interfaces_file, 'a') as file:
-        file.write(loopback_config + ethernet_config_instrument + wifi_config)
+        file.write(loopback_config + ethernet_config_instrument + ''.join(wifi_config_list))
 
 
 # Rebooting the raspberry pi
@@ -342,11 +310,14 @@ def clean_up_setup():
 
 
 if __name__ == '__main__':
+    arguments = fetch_argument()
+    no_dns = arguments.nodns
     settings.test_values()
     base_directory = file_directory()
     ssid, username, password = fetch_wireless_parameters()
     pi_configuration()
     firewall_configuration(base_directory)
-    dns_configuration(base_directory, ssid)
-    network_configuration(ssid, username, password)
+    if not no_dns:
+        dns_configuration(base_directory, ssid)
+    network_configuration(ssid, username, password, no_dns)
     clean_up_setup()

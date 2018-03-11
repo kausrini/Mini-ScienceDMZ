@@ -27,6 +27,12 @@ def fetch_argument():
                         action='store_true'
                         )
 
+    parser.add_argument('-m', '--manual',
+                        help='Script does not configure the network for internet connection for eth1. \n'
+                             'User expected to configure the network themselves for eth1',
+                        action='store_true'
+                        )
+
     input_arguments = parser.parse_args()
     return input_arguments
 
@@ -59,6 +65,7 @@ def fetch_wireless_parameters():
             else:
                 print('[ERROR] Please enter an Wireless network SSID')
     else:
+        print('Note: The wired internet connection MUST be through the ethernet adapter connected to the USB port')
         return None, None, None
 
     wifi_username = None
@@ -213,7 +220,7 @@ def dns_configuration(base_path, wireless):
 
 # Create Wifi configuration for connecting to Wireless network or not if wired.
 # Creates the interface configuration for the scientific instrument.
-def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dns):
+def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dynamic_dns, manual_config):
     print('Setting up the internet configuration')
 
     # For wifi configuration
@@ -250,8 +257,13 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dns):
     # Wired internet connection
     if wifi_ssid is None:
 
+        write_values = loopback_config + ethernet_config_instrument
+
+        if not manual_config:
+            write_values = write_values + ethernet_config_internet
+
         with open(interfaces_file, 'a') as file:
-            file.write(loopback_config + ethernet_config_instrument + ethernet_config_internet)
+            file.write(write_values)
         return
 
     # Wireless internet connection
@@ -286,7 +298,7 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dns):
         # '\tpre-up /bin/bash /etc/firewall/iptables.sh\n'
     ]
 
-    if not no_dns:
+    if not no_dynamic_dns:
         wifi_config_list.append('\tpost-up /bin/bash /etc/dns/dynv6.sh\n')
 
     print('Adding WPA configuration to {} file'.format(wpa_config_file))
@@ -312,6 +324,7 @@ def clean_up_setup():
 if __name__ == '__main__':
     arguments = fetch_argument()
     no_dns = arguments.nodns
+    manual = arguments.manual
     settings.test_values()
     base_directory = file_directory()
     ssid, username, password = fetch_wireless_parameters()
@@ -319,5 +332,5 @@ if __name__ == '__main__':
     firewall_configuration(base_directory)
     if not no_dns:
         dns_configuration(base_directory, ssid)
-    network_configuration(ssid, username, password, no_dns)
+    network_configuration(ssid, username, password, no_dns, manual)
     clean_up_setup()

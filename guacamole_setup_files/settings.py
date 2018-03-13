@@ -11,7 +11,7 @@ DOMAIN_NAME = ''
 CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
 # Note : if proxy server not configured. CAS_REDIRECT_URI needs to be changed
 # to http instead of https and also port 8080 need to be there
-CAS_REDIRECT_URI = 'https://{}/guacamole/'.format(DOMAIN_NAME)
+CAS_REDIRECT_URI = 'http://{}/guacamole/'.format(DOMAIN_NAME)
 
 TOMCAT_VERSION = '8.5.29'
 GUACAMOLE_VERSION = '0.9.14'

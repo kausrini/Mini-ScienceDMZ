@@ -25,6 +25,11 @@ def fetch_arguments():
                         required=True
                         )
 
+    parser.add_argument('-i', '--insecure',
+                        help='Sets up insecure/HTTP configuration for apache reverse proxy',
+                        action='store_true'
+                        )
+
     args = parser.parse_args()
     return args
 
@@ -39,31 +44,23 @@ def upgrade_packages():
 
 
 # Installs all required packages for our application
-def install_packages():
-    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests', 'python-certbot-apache']
+def install_packages(http):
 
-    # Prefer IPV4 over IPV6 for downloading updates
-    # subprocess.check_output(['sed', '-i', '--',
-    #                         's|#precedence ::ffff:0:0/96  100|precedence ::ffff:0:0/96  100|g',
-    #                         '/etc/gai.conf'])
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests']
+
+    if not http:
+        packages.append('python-certbot-apache')
+
+        # Installing certbot separately from source. Workaround for issues with certbot. Remove this in future.
+        subprocess.call(['wget', '-P', '/home/pi/', 'https://dl.eff.org/certbot-auto'])
+        subprocess.call(['sudo', 'chmod', 'a+x', '/home/pi/certbot-auto'])
 
     print('Updating packages existing packages')
     subprocess.call(['apt-get', 'update'])
     print('Installing the following packages {}'.format(", ".join(packages)))
     subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
 
-    #Installing certbot separately from source
-    subprocess.call(['wget', '-P', '/home/pi/','https://dl.eff.org/certbot-auto'])
-    subprocess.call(['sudo', 'chmod', 'a+x', '/home/pi/certbot-auto'])
-
-
-
-    # Resetting the preferences to default
-    # subprocess.check_output(['sed', '-i', '--',
-    #                         's|precedence ::ffff:0:0/96  100|#precedence ::ffff:0:0/96  100|g',
-    #                         '/etc/gai.conf'])
-
-
+# Sets up the dhcp server configuration
 def isc_dhcp_server_configuration():
     dhcpd_file = '/etc/dhcp/dhcpd.conf'
     dhcpd_backup = '/etc/dhcp/dhcpd_backup.conf'
@@ -120,22 +117,31 @@ def tls_configuration(email_address, test):
     subprocess.check_output(certbot_arguments)
 
 
-# Creating configuration to proxy requests to the tomcat container
-def apache_configuration():
-    print("Creating the Reverse Proxy Configuration and securing Apache server")
+def apache_http_configuration(proxy_config, miscellaneous_headers):
 
-    # The first proxy pass MUST be to websocket tunnel.
-    # If the first proxy pass is for just guacamole connection defaults to HTTP Tunnel
-    # and causes degraded performance, file transfer breaks.
-    # Note that proxy is to localhost port 8080. Hence container port 8080 should be binded to localhost:8080
-    proxy_config = (
-        '\n\n\t# Proxy configuration'
-        '\n\tProxyPass /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel'
-        '\n\tProxyPassReverse /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel'
-        '\n\n\tProxyPass /guacamole/ http://127.0.0.1:8080/guacamole/ flushpackets=on'
-        '\n\tProxyPassReverse /guacamole/ http://127.0.0.1:8080/guacamole/'
-    )
+    default_config_file = '/etc/apache2/sites-available/000-default.conf'
+    default_config_backup = '/etc/apache2/sites-available/000-default_backup.conf'
 
+    with open(default_config_file, 'r') as file:
+        default_contents = file.readlines()
+
+    if len(default_contents) == 0:
+        print('[ERROR]The {} file has no contents'.format(default_config_file))
+        sys.exit()
+
+    if not os.path.isfile(default_config_backup):
+        shutil.copy2(default_config_file, default_config_backup)
+    else:
+        shutil.copy2(default_config_backup, default_config_file)
+
+    with open(default_config_file, 'w') as file:
+        for line in default_contents:
+            file.write(line)
+            if line.strip() == 'DocumentRoot /var/www/html':
+                file.write(proxy_config + miscellaneous_headers)
+
+
+def apache_https_configuration(proxy_config, miscellaneous_headers):
     # OSCP stapling configuration for our server
     ocsp_stapling_config = (
         '\n\n\t#OSCP Stapling Configuration'
@@ -156,26 +162,6 @@ def apache_configuration():
         '\n\tHeader always set Strict-Transport-Security "max-age=31536000; includeSubDomains"'
         '\n'
     )
-
-    # Hiding apache web server signature
-    apache_signature_config = (
-        '\n# Hiding apache web server signature'
-        '\nServerSignature Off'
-        '\nServerTokens Prod\n'
-    )
-
-    # Other headers
-    miscellaneous_headers = (
-        '\n\tHeader set X-Content-Type-Options nosniff'
-        '\n\tHeader always set X-Frame-Options "SAMEORIGIN"'
-        '\n\tHeader always set X-Xss-Protection "1; mode=block"'
-    )
-
-    # For proxying
-    subprocess.check_output(['a2enmod', 'proxy_http'])
-    subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
-    # For enabling HSTS
-    subprocess.check_output(['a2enmod', 'headers'])
 
     ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
     ssl_config_backup = '/etc/apache2/sites-available/000-default-le-ssl_backup.conf'
@@ -218,6 +204,48 @@ def apache_configuration():
             file.write(line)
             if line.strip() == '<IfModule mod_ssl.c>':
                 file.write(ssl_stapling_cache)
+
+
+# Creating configuration to proxy requests to the tomcat container
+def apache_configuration(http):
+    print("Creating the Reverse Proxy Configuration and securing Apache server")
+
+    # For proxying
+    subprocess.check_output(['a2enmod', 'proxy_http'])
+    subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
+    # For enabling HSTS
+    subprocess.check_output(['a2enmod', 'headers'])
+
+    # The first proxy pass MUST be to websocket tunnel.
+    # If the first proxy pass is for just guacamole connection defaults to HTTP Tunnel
+    # and causes degraded performance, file transfer breaks.
+    # Note that proxy is to localhost port 8080. Hence container port 8080 should be binded to localhost:8080
+    proxy_config = (
+        '\n\n\t# Proxy configuration'
+        '\n\tProxyPass /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel'
+        '\n\tProxyPassReverse /guacamole/websocket-tunnel ws://127.0.0.1:8080/guacamole/websocket-tunnel'
+        '\n\n\tProxyPass /guacamole/ http://127.0.0.1:8080/guacamole/ flushpackets=on'
+        '\n\tProxyPassReverse /guacamole/ http://127.0.0.1:8080/guacamole/'
+    )
+
+    # Hiding apache web server signature
+    apache_signature_config = (
+        '\n# Hiding apache web server signature'
+        '\nServerSignature Off'
+        '\nServerTokens Prod\n'
+    )
+
+    # Other headers
+    miscellaneous_headers = (
+        '\n\tHeader set X-Content-Type-Options nosniff'
+        '\n\tHeader always set X-Frame-Options "SAMEORIGIN"'
+        '\n\tHeader always set X-Xss-Protection "1; mode=block"'
+    )
+
+    if http:
+        apache_http_configuration(proxy_config, miscellaneous_headers)
+    else:
+        apache_https_configuration(proxy_config, miscellaneous_headers)
 
     apache_config_file = '/etc/apache2/apache2.conf'
     apache_config_backup = '/etc/apache2/apache2_backup.conf'
@@ -308,11 +336,13 @@ if __name__ == '__main__':
         sys.exit(1)
     email = arguments.email
     testing = arguments.testing
-    install_packages()
+    http = arguments.insecure
+    install_packages(http)
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
-    tls_configuration(email, testing)
-    apache_configuration()
+    if not http:
+        tls_configuration(email, testing)
+    apache_configuration(http)
     setup_cronjobs()
     clean_up_setup()

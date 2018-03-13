@@ -99,12 +99,8 @@ def pi_configuration():
     # between the GPU and the rest of the system down to 16mb
     print('Setting GPU memory to 16mb')
     config_file = '/boot/config.txt'
-    config_file_backup = '/boot/config_backup.txt'
     try:
-        if not os.path.isfile(config_file_backup):
-            shutil.copy2(config_file, config_file_backup)
-        else:
-            shutil.copy2(config_file_backup, config_file)
+        settings.backup_file(config_file)
     except OSError as error:
         if 'Permission denied' in error.strerror:
             print("[ERROR] Code is executed as a non privileged user."
@@ -227,7 +223,6 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dynamic_dns,
     wpa_config_file = '/etc/wpa_supplicant/wpa_supplicant.conf'
     wpa_config_backup = '/etc/wpa_supplicant/wpa_supplicant_backup.conf'
     interfaces_file = '/etc/network/interfaces'
-    interfaces_backup = interfaces_file + '_backup'
 
     loopback_config = (
         '\nauto lo\n'
@@ -243,10 +238,7 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dynamic_dns,
     )
 
     # Taking a backup of interfaces file
-    if not os.path.isfile(interfaces_backup):
-        shutil.copy2(interfaces_file, interfaces_backup)
-    else:
-        shutil.copy2(interfaces_backup, interfaces_file)
+    settings.backup_file(interfaces_file)
 
     ethernet_config_internet = (
         '\nauto eth1\n'
@@ -302,10 +294,7 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dynamic_dns,
         wifi_config_list.append('\tpost-up /bin/bash /etc/dns/dynv6.sh\n')
 
     print('Adding WPA configuration to {} file'.format(wpa_config_file))
-    if not os.path.isfile(wpa_config_backup):
-        shutil.copy2(wpa_config_file, wpa_config_backup)
-    else:
-        shutil.copy2(wpa_config_backup, wpa_config_file)
+    settings.backup_file(wpa_config_file)
     with open(wpa_config_file, 'a') as file:
         file.write(final_wpa_config)
 

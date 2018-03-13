@@ -4,6 +4,8 @@ import sys
 import socket
 import os
 
+import shutil
+
 # Store your registered Domain name here.
 DOMAIN_NAME = ''
 
@@ -36,3 +38,26 @@ def check_internet_connectivity():
 
     print('The raspberry pi has internet connectivity.')
     return True
+
+
+# If no backup file exists, the method creates backup file.
+# If backup file does exist, it overwrites original file with the backup.
+def backup_file(original_file_name):
+
+    # Generating a backup file name
+    try:
+        file_extension_position = original_file_name.index('.')
+    except ValueError:
+        # File has no extension
+        file_extension_position = -1
+
+    if file_extension_position == -1:
+        backup_file_name = original_file_name + '_backup'
+    else:
+        backup_file_name = original_file_name[:file_extension_position] + '_backup' \
+                           + original_file_name[file_extension_position:]
+
+    if not os.path.isfile(backup_file_name):
+        shutil.copy2(original_file_name, backup_file_name)
+    else:
+        shutil.copy2(backup_file_name, original_file_name)

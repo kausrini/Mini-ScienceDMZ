@@ -63,7 +63,6 @@ def install_packages(http):
 # Sets up the dhcp server configuration
 def isc_dhcp_server_configuration():
     dhcpd_file = '/etc/dhcp/dhcpd.conf'
-    dhcpd_backup = '/etc/dhcp/dhcpd_backup.conf'
 
     dhcp_config = (
         '\nddns-update-style none;\ndeny declines;\ndeny bootp;\n'
@@ -77,10 +76,8 @@ def isc_dhcp_server_configuration():
     )
 
     print('Adding the raspberry pi dhcp server configuration to {} file'.format(dhcpd_file))
-    if not os.path.isfile(dhcpd_backup):
-        shutil.copy2(dhcpd_file, dhcpd_backup)
-    else:
-        shutil.copy2(dhcpd_backup, dhcpd_file)
+
+    settings.backup_file(dhcpd_file)
     with open(dhcpd_file, 'w') as file:
         file.write(dhcp_config)
 
@@ -120,7 +117,6 @@ def tls_configuration(email_address, test):
 def apache_http_configuration(proxy_config, miscellaneous_headers):
 
     default_config_file = '/etc/apache2/sites-available/000-default.conf'
-    default_config_backup = '/etc/apache2/sites-available/000-default_backup.conf'
 
     with open(default_config_file, 'r') as file:
         default_contents = file.readlines()
@@ -129,10 +125,7 @@ def apache_http_configuration(proxy_config, miscellaneous_headers):
         print('[ERROR]The {} file has no contents'.format(default_config_file))
         sys.exit()
 
-    if not os.path.isfile(default_config_backup):
-        shutil.copy2(default_config_file, default_config_backup)
-    else:
-        shutil.copy2(default_config_backup, default_config_file)
+    settings.backup_file(default_config_file)
 
     with open(default_config_file, 'w') as file:
         for line in default_contents:
@@ -164,7 +157,6 @@ def apache_https_configuration(proxy_config, miscellaneous_headers):
     )
 
     ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
-    ssl_config_backup = '/etc/apache2/sites-available/000-default-le-ssl_backup.conf'
 
     with open(ssl_config_file, 'r') as file:
         contents = file.readlines()
@@ -173,10 +165,7 @@ def apache_https_configuration(proxy_config, miscellaneous_headers):
         print('[ERROR]The {} file has no contents'.format(ssl_config_file))
         sys.exit()
 
-    if not os.path.isfile(ssl_config_backup):
-        shutil.copy2(ssl_config_file, ssl_config_backup)
-    else:
-        shutil.copy2(ssl_config_backup, ssl_config_file)
+    settings.backup_file(ssl_config_file)
 
     with open(ssl_config_file, 'w') as file:
         for line in contents:
@@ -185,7 +174,6 @@ def apache_https_configuration(proxy_config, miscellaneous_headers):
                 file.write(hsts_config + proxy_config + ocsp_stapling_config + miscellaneous_headers)
 
     ssl_mod_file = '/etc/apache2/mods-available/ssl.conf'
-    ssl_mod_backup = '/etc/apache2/mods-available/ssl_backup.conf'
 
     with open(ssl_mod_file, 'r') as file:
         contents = file.readlines()
@@ -194,10 +182,7 @@ def apache_https_configuration(proxy_config, miscellaneous_headers):
         print('[ERROR]The {} file has no contents'.format(ssl_mod_file))
         sys.exit()
 
-    if not os.path.isfile(ssl_mod_backup):
-        shutil.copy2(ssl_mod_file, ssl_mod_backup)
-    else:
-        shutil.copy2(ssl_mod_backup, ssl_mod_file)
+    settings.backup_file(ssl_mod_file)
 
     with open(ssl_mod_file, 'w') as file:
         for line in contents:
@@ -248,12 +233,8 @@ def apache_configuration(http):
         apache_https_configuration(proxy_config, miscellaneous_headers)
 
     apache_config_file = '/etc/apache2/apache2.conf'
-    apache_config_backup = '/etc/apache2/apache2_backup.conf'
 
-    if not os.path.isfile(apache_config_backup):
-        shutil.copy2(apache_config_file, apache_config_backup)
-    else:
-        shutil.copy2(apache_config_backup, apache_config_file)
+    settings.backup_file(apache_config_file)
 
     with open(apache_config_file, 'a') as file:
         file.write(apache_signature_config)

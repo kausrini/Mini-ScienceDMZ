@@ -221,7 +221,6 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dynamic_dns,
 
     # For wifi configuration
     wpa_config_file = '/etc/wpa_supplicant/wpa_supplicant.conf'
-    wpa_config_backup = '/etc/wpa_supplicant/wpa_supplicant_backup.conf'
     interfaces_file = '/etc/network/interfaces'
 
     loopback_config = (

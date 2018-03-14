@@ -30,6 +30,11 @@ def fetch_arguments():
                         action='store_true'
                         )
 
+    parser.add_argument('-s', '--self',
+                        help='Sets up self-signed configuration for apache reverse proxy',
+                        action='store_true'
+                        )
+
     args = parser.parse_args()
     return args
 
@@ -59,6 +64,7 @@ def install_packages(http):
     subprocess.call(['apt-get', 'update'])
     print('Installing the following packages {}'.format(", ".join(packages)))
     subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
+
 
 # Sets up the dhcp server configuration
 def isc_dhcp_server_configuration():
@@ -99,7 +105,7 @@ def tls_configuration(email_address, test):
     # Update DNS Record before getting certificate
     try:
         subprocess.check_output('/etc/dnss/dynv6.sh')
-    except OSError as e:
+    except OSError:
         if 'No such file or directory':
             print('[Warning] No dynamic dns script detected.')
 
@@ -114,9 +120,18 @@ def tls_configuration(email_address, test):
     subprocess.check_output(certbot_arguments)
 
 
-def apache_http_configuration(proxy_config, miscellaneous_headers):
+# Writes proxy configuration to http virtual host if http setup
+# Else writes redirection code to http virtual host if https setup
+def apache_http_configuration(proxy_config, miscellaneous_headers, https):
 
     default_config_file = '/etc/apache2/sites-available/000-default.conf'
+
+    if https:
+        write_contents = '\n\tRewriteEngine on\n\tRewriteCond %{SERVER_NAME} =' + domain_name + \
+                         '\n\tRewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} ' \
+                         '[END,NE,R=permanent]\n'
+    else:
+        write_contents = proxy_config + miscellaneous_headers
 
     with open(default_config_file, 'r') as file:
         default_contents = file.readlines()
@@ -131,10 +146,15 @@ def apache_http_configuration(proxy_config, miscellaneous_headers):
         for line in default_contents:
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
-                file.write(proxy_config + miscellaneous_headers)
+                file.write(write_contents)
+
+    # Enabling the http virtual host
+    subprocess.check_output(['a2ensite', default_config_file])
 
 
-def apache_https_configuration(proxy_config, miscellaneous_headers):
+# https configuration common to certbot and self-signed setup
+def https_config(proxy_config, miscellaneous_headers, ssl_config_file):
+
     # OSCP stapling configuration for our server
     ocsp_stapling_config = (
         '\n\n\t#OSCP Stapling Configuration'
@@ -143,11 +163,6 @@ def apache_https_configuration(proxy_config, miscellaneous_headers):
         '\n\tSSLStaplingResponderTimeout 5'
         '\n\n'
     )
-    ssl_stapling_cache = (
-        '\n\n\t# The SSL Stapling Cache global parameter'
-        '\n\tSSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(128000)'
-        '\n'
-    )
 
     # HSTS configuration
     hsts_config = (
@@ -155,8 +170,6 @@ def apache_https_configuration(proxy_config, miscellaneous_headers):
         '\n\tHeader always set Strict-Transport-Security "max-age=31536000; includeSubDomains"'
         '\n'
     )
-
-    ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
 
     with open(ssl_config_file, 'r') as file:
         contents = file.readlines()
@@ -172,6 +185,68 @@ def apache_https_configuration(proxy_config, miscellaneous_headers):
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
                 file.write(hsts_config + proxy_config + ocsp_stapling_config + miscellaneous_headers)
+
+
+# self signed https configuration.
+def apache_self_signed_configuration(ssl_config_file, email_address, domain_name):
+
+    cert_path = '/etc/minidmz_certs/'
+
+    # Enabling rewrite engine for apache2 https redirection
+    subprocess.check_output(['a2enmod', 'rewrite'])
+
+    # Create folder for certificate and private keys
+    try:
+        print('Creating certificate path at {}'.format(cert_path))
+        os.makedirs(cert_path)
+    except OSError as error:
+        if 'File exists' in error.strerror:
+            print('Certificate folder exists at {}'.format(cert_path))
+            pass
+        else:
+            print(error)
+            sys.exit()
+
+    # Generate certificate and key
+    openssl_command = ('openssl req -x509 -nodes -days 365 -newkey rsa:4096 -keyout {}.key -out {}.crt -subj'
+                       ' "/C=US/ST=Indiana/L=Bloomington/O=Indiana University/OU=UITS/'
+                       'CN={}/emailAddress={}"').format(cert_path + domain_name, cert_path + domain_name,
+                                                        domain_name, email_address)
+    subprocess.check_output(openssl_command, shell=True)
+
+    # Write to ssl virtual host file for apache
+    contents = '<IfModule mod_ssl.c>\n<VirtualHost *:443>\n\tServerAdmin webmaster@localhost' \
+               '\n\tDocumentRoot /var/www/html' \
+               '\n\tServerName {}' \
+               '\n\tSSLEngine on \n\tSSLCertificateFile {}{}.crt ' \
+               '\n\tSSLCertificateKeyFile {}{}.key' \
+               '\n</VirtualHost>\n</IfModule>'.format(domain_name, cert_path, domain_name, cert_path, domain_name)
+
+    with open(ssl_config_file, 'w') as file:
+        file.write(contents)
+
+    # Modifying http configuration for https redirection
+    apache_http_configuration(None, None, True)
+
+
+# Https Configuration
+def apache_https_configuration(proxy_config, miscellaneous_headers, self_signed):
+
+    ssl_stapling_cache = (
+        '\n\n\t# The SSL Stapling Cache global parameter'
+        '\n\tSSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(128000)'
+        '\n'
+    )
+
+    if self_signed:
+        ssl_config_file = '/etc/apache2/sites-available/000-default-minidmz-ssl.conf'
+        apache_self_signed_configuration(ssl_config_file, email_address, domain_name)
+        # Enabling the http virtual host
+        subprocess.check_output(['a2ensite', ssl_config_file])
+    else:
+        ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
+
+    https_config(proxy_config, miscellaneous_headers, ssl_config_file)
 
     ssl_mod_file = '/etc/apache2/mods-available/ssl.conf'
 
@@ -192,7 +267,7 @@ def apache_https_configuration(proxy_config, miscellaneous_headers):
 
 
 # Creating configuration to proxy requests to the tomcat container
-def apache_configuration(http):
+def apache_configuration(http, self_signed):
     print("Creating the Reverse Proxy Configuration and securing Apache server")
 
     # For proxying
@@ -228,9 +303,9 @@ def apache_configuration(http):
     )
 
     if http:
-        apache_http_configuration(proxy_config, miscellaneous_headers)
+        apache_http_configuration(proxy_config, miscellaneous_headers, False)
     else:
-        apache_https_configuration(proxy_config, miscellaneous_headers)
+        apache_https_configuration(proxy_config, miscellaneous_headers, self_signed)
 
     apache_config_file = '/etc/apache2/apache2.conf'
 
@@ -318,12 +393,13 @@ if __name__ == '__main__':
     email = arguments.email
     testing = arguments.testing
     http = arguments.insecure
-    install_packages(http)
+    self_signed = arguments.self
+    install_packages(http or self_signed)
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
     if not http:
         tls_configuration(email, testing)
-    apache_configuration(http)
+    apache_configuration(http, self_signed)
     setup_cronjobs()
     clean_up_setup()

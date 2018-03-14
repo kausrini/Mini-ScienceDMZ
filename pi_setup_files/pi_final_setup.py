@@ -49,11 +49,11 @@ def upgrade_packages():
 
 
 # Installs all required packages for our application
-def install_packages(http):
+def install_packages(http_setup):
 
     packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests']
 
-    if not http:
+    if not http_setup:
         packages.append('python-certbot-apache')
 
         # Installing certbot separately from source. Workaround for issues with certbot. Remove this in future.
@@ -127,7 +127,7 @@ def apache_http_configuration(proxy_config, miscellaneous_headers, https):
     default_config_file = '/etc/apache2/sites-available/000-default.conf'
 
     if https:
-        write_contents = '\n\tRewriteEngine on\n\tRewriteCond %{SERVER_NAME} =' + domain_name + \
+        write_contents = '\n\tRewriteEngine on\n\tRewriteCond %{SERVER_NAME} =' + settings.DOMAIN_NAME + \
                          '\n\tRewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} ' \
                          '[END,NE,R=permanent]\n'
     else:
@@ -230,7 +230,7 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
 
 
 # Https Configuration
-def apache_https_configuration(proxy_config, miscellaneous_headers, self_signed):
+def apache_https_configuration(proxy_config, miscellaneous_headers, email_address, self_signed_cert):
 
     ssl_stapling_cache = (
         '\n\n\t# The SSL Stapling Cache global parameter'
@@ -238,9 +238,9 @@ def apache_https_configuration(proxy_config, miscellaneous_headers, self_signed)
         '\n'
     )
 
-    if self_signed:
+    if self_signed_cert:
         ssl_config_file = '/etc/apache2/sites-available/000-default-minidmz-ssl.conf'
-        apache_self_signed_configuration(ssl_config_file, email_address, domain_name)
+        apache_self_signed_configuration(ssl_config_file, email_address, settings.DOMAIN_NAME)
         # Enabling the http virtual host
         subprocess.check_output(['a2ensite', ssl_config_file])
     else:
@@ -267,7 +267,7 @@ def apache_https_configuration(proxy_config, miscellaneous_headers, self_signed)
 
 
 # Creating configuration to proxy requests to the tomcat container
-def apache_configuration(http, self_signed):
+def apache_configuration(http_setup, self_signed_cert, email_id):
     print("Creating the Reverse Proxy Configuration and securing Apache server")
 
     # For proxying
@@ -302,10 +302,10 @@ def apache_configuration(http, self_signed):
         '\n\tHeader always set X-Xss-Protection "1; mode=block"'
     )
 
-    if http:
+    if http_setup:
         apache_http_configuration(proxy_config, miscellaneous_headers, False)
     else:
-        apache_https_configuration(proxy_config, miscellaneous_headers, self_signed)
+        apache_https_configuration(proxy_config, miscellaneous_headers, email_id, self_signed_cert)
 
     apache_config_file = '/etc/apache2/apache2.conf'
 
@@ -400,6 +400,6 @@ if __name__ == '__main__':
     guacamole_configuration()
     if not http:
         tls_configuration(email, testing)
-    apache_configuration(http, self_signed)
+    apache_configuration(http, self_signed, email)
     setup_cronjobs()
     clean_up_setup()

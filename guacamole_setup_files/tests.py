@@ -73,12 +73,6 @@ def check_dockerfile_links():
     # Following links are present in the guacamole Dockerfile
     # The guacamole_jdbc link exists in both guacamole Dockerfile and database Dockerfile
 
-    tomcat = (
-        "https://www-us.apache.org/dist/tomcat/tomcat-8/v{}"
-        "/bin/apache-tomcat-{}"
-        ".tar.gz"
-    ).format(settings.TOMCAT_VERSION, settings.TOMCAT_VERSION)
-
     guacamole_server = (
         'http://apache.mirrors.tds.net/guacamole/{}' 
         '/source/guacamole-server-{}' 

@@ -283,7 +283,6 @@ def build_sql_container(docker_network_name, mysql_root_password, mysql_user_pas
 def build_guacamole_image(directories):
     print("Building the Guacamole Image")
     subprocess.call(["docker", "build", '--build-arg', 'GUACAMOLE_VERSION=' + settings.GUACAMOLE_VERSION,
-                     '--build-arg', 'TOMCAT_VERSION=' + settings.TOMCAT_VERSION,
                      '--build-arg', 'MYSQL_CONNECTOR_VERSION=' + settings.MYSQL_CONNECTOR_VERSION,
                      "-t", settings.GUACAMOLE_IMAGE_NAME,
                      directories[settings.DIRECTORY_GUACAMOLE] + '/.'])

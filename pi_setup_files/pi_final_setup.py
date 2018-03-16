@@ -95,7 +95,9 @@ def isc_dhcp_server_configuration():
 
 
 # Sets up https configuration for apache
-def tls_configuration(email_address, test):
+# Returns false if certbot setup was successful
+def certbot_tls_configuration(email_address, test):
+    certbot_setup = False
     ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
 
     if os.path.isdir('/etc/letsencrypt/live/' + settings.DOMAIN_NAME) and os.path.isfile(ssl_config_file):
@@ -104,7 +106,7 @@ def tls_configuration(email_address, test):
 
     # Update DNS Record before getting certificate
     try:
-        subprocess.check_output('/etc/dnss/dynv6.sh')
+        subprocess.check_output('/etc/dns/dynv6.sh')
     except OSError:
         if 'No such file or directory':
             print('[Warning] No dynamic dns script detected.')
@@ -117,7 +119,15 @@ def tls_configuration(email_address, test):
     certbot_arguments.extend(['--redirect', '--agree-tos', '--email', email_address])
 
     print('Setting up HTTPS support for the website')
-    subprocess.check_output(certbot_arguments)
+    try:
+        subprocess.check_output(certbot_arguments)
+    except subprocess.CalledProcessError as error:
+        print('[ERROR] Certbot setup failed due to following error. This setup shall proceed with configuring '
+              'self-signed apache reverse proxy as an alternative')
+        print(error)
+        certbot_setup = True
+
+    return certbot_setup
 
 
 # Writes proxy configuration to http virtual host if http setup
@@ -398,8 +408,8 @@ if __name__ == '__main__':
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
-    if not http:
-        tls_configuration(email, testing)
+    if not (http or self_signed):
+        self_signed = certbot_tls_configuration(email, testing)
     apache_configuration(http, self_signed, email)
     setup_cronjobs()
     clean_up_setup()

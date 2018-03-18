@@ -22,7 +22,6 @@ def fetch_arguments():
 
     parser.add_argument('-e', '--email',
                         help='This email address will be used to recover server certificate key using letsencrypt',
-                        required=True
                         )
 
     parser.add_argument('-i', '--insecure',
@@ -134,7 +133,9 @@ def certbot_tls_configuration(email_address, test):
 # Else writes redirection code to http virtual host if https setup
 def apache_http_configuration(proxy_config, miscellaneous_headers, https):
 
-    default_config_file = '/etc/apache2/sites-available/000-default.conf'
+    default_cofig_path = '/etc/apache2/sites-available/'
+    default_config_name = '000-default.conf'
+    default_config_file = default_cofig_path + default_config_name
 
     if https:
         write_contents = '\n\tRewriteEngine on\n\tRewriteCond %{SERVER_NAME} =' + settings.DOMAIN_NAME + \
@@ -143,14 +144,14 @@ def apache_http_configuration(proxy_config, miscellaneous_headers, https):
     else:
         write_contents = proxy_config + miscellaneous_headers
 
+    settings.backup_file(default_config_file)
+
     with open(default_config_file, 'r') as file:
         default_contents = file.readlines()
 
     if len(default_contents) == 0:
         print('[ERROR]The {} file has no contents'.format(default_config_file))
         sys.exit()
-
-    settings.backup_file(default_config_file)
 
     with open(default_config_file, 'w') as file:
         for line in default_contents:
@@ -159,7 +160,7 @@ def apache_http_configuration(proxy_config, miscellaneous_headers, https):
                 file.write(write_contents)
 
     # Enabling the http virtual host
-    subprocess.check_output(['a2ensite', default_config_file])
+    subprocess.check_output(['a2ensite', default_config_name])
 
 
 # https configuration common to certbot and self-signed setup
@@ -181,14 +182,14 @@ def https_config(proxy_config, miscellaneous_headers, ssl_config_file):
         '\n'
     )
 
+    settings.backup_file(ssl_config_file)
+
     with open(ssl_config_file, 'r') as file:
         contents = file.readlines()
 
     if len(contents) == 0:
         print('[ERROR]The {} file has no contents'.format(ssl_config_file))
         sys.exit()
-
-    settings.backup_file(ssl_config_file)
 
     with open(ssl_config_file, 'w') as file:
         for line in contents:
@@ -201,6 +202,7 @@ def https_config(proxy_config, miscellaneous_headers, ssl_config_file):
 def apache_self_signed_configuration(ssl_config_file, email_address, domain_name):
 
     cert_path = '/etc/minidmz_certs/'
+    dh_param_file = 'dhparam.pem'
 
     # Enabling rewrite engine for apache2 https redirection
     subprocess.check_output(['a2enmod', 'rewrite'])
@@ -217,12 +219,20 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
             print(error)
             sys.exit()
 
+    cert_generation_command = ('openssl req -x509 -nodes -days 365 -newkey rsa:4096 -keyout {}.key -out {}.crt -subj'
+                               ' "/C=US/ST=Indiana/L=Bloomington/O=Indiana University/OU=UITS/'
+                               'CN={}/emailAddress={}"').format(cert_path + domain_name, cert_path + domain_name,
+                                                                domain_name, email_address)
+
+    # TODO: Make DH group generation optional. Ask user if they want more secure tls connections.
+    # Warn them it'll take additional 30 mins of setup time.
+    #diffie_hellman_group_command = ['openssl', 'dhparam', '-out', cert_path + dh_param_file, '2048']
+    #print('Generating Diffie-Hellman Group for negotiating perfect forward secrecy. This will take around 30 minutes!')
+    #subprocess.check_output(diffie_hellman_group_command)
+
     # Generate certificate and key
-    openssl_command = ('openssl req -x509 -nodes -days 365 -newkey rsa:4096 -keyout {}.key -out {}.crt -subj'
-                       ' "/C=US/ST=Indiana/L=Bloomington/O=Indiana University/OU=UITS/'
-                       'CN={}/emailAddress={}"').format(cert_path + domain_name, cert_path + domain_name,
-                                                        domain_name, email_address)
-    subprocess.check_output(openssl_command, shell=True)
+    print('Generating a Self-Signed Certificate')
+    subprocess.check_output(cert_generation_command, shell=True)
 
     # Write to ssl virtual host file for apache
     contents = '<IfModule mod_ssl.c>\n<VirtualHost *:443>\n\tServerAdmin webmaster@localhost' \
@@ -249,10 +259,13 @@ def apache_https_configuration(proxy_config, miscellaneous_headers, email_addres
     )
 
     if self_signed_cert:
-        ssl_config_file = '/etc/apache2/sites-available/000-default-minidmz-ssl.conf'
+        ssl_config_path = '/etc/apache2/sites-available/'
+        ssl_config_name = '000-default-minidmz-ssl.conf'
+        ssl_config_file = ssl_config_path + ssl_config_name
         apache_self_signed_configuration(ssl_config_file, email_address, settings.DOMAIN_NAME)
+        subprocess.check_output(['a2enmod', 'ssl'])
         # Enabling the http virtual host
-        subprocess.check_output(['a2ensite', ssl_config_file])
+        subprocess.check_output(['a2ensite', ssl_config_name])
     else:
         ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
 
@@ -260,14 +273,14 @@ def apache_https_configuration(proxy_config, miscellaneous_headers, email_addres
 
     ssl_mod_file = '/etc/apache2/mods-available/ssl.conf'
 
+    settings.backup_file(ssl_mod_file)
+
     with open(ssl_mod_file, 'r') as file:
         contents = file.readlines()
 
     if len(contents) == 0:
         print('[ERROR]The {} file has no contents'.format(ssl_mod_file))
         sys.exit()
-
-    settings.backup_file(ssl_mod_file)
 
     with open(ssl_mod_file, 'w') as file:
         for line in contents:
@@ -309,7 +322,7 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
     miscellaneous_headers = (
         '\n\tHeader set X-Content-Type-Options nosniff'
         '\n\tHeader always set X-Frame-Options "SAMEORIGIN"'
-        '\n\tHeader always set X-Xss-Protection "1; mode=block"'
+        '\n\tHeader always set X-Xss-Protection "1; mode=block"\n'
     )
 
     if http_setup:
@@ -408,8 +421,12 @@ if __name__ == '__main__':
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
-    if not (http or self_signed):
-        self_signed = certbot_tls_configuration(email, testing)
+    if not http:
+        if email is None:
+            sys.stdout.write('\n\nEnter email address : ')
+            email = input()
+        if not self_signed:
+            self_signed = certbot_tls_configuration(email, testing)
     apache_configuration(http, self_signed, email)
     setup_cronjobs()
     clean_up_setup()

@@ -5,13 +5,17 @@ device="YOUR_NETWORK_DEVICE_NAME_HERE"
 
 if [ "$token" = "YOUR_DYNV6_TOKEN_HERE" ]; then
   echo "[ERROR] Valid token is missing in the dynv6 script"
-  exit 0 
+  exit 1 
 fi
 
+if [ "$hostname" = "YOUR_DOMAIN_NAME_HERE" ]; then
+  echo "[ERROR] Valid domain name is missing in the dynv6 script"
+  exit 1 
+fi
 
-if [ -z "$hostname" ]; then
-  echo "[ERROR] Domain name is missing in the dynv6 script"
-  exit 0
+if [ "$device" = "YOUR_NETWORK_DEVICE_NAME_HERE" ]; then
+  echo "[ERROR] Valid network device is missing in the dynv6 script"
+  exit 1 
 fi
 
 if [ -z "$netmask" ]; then

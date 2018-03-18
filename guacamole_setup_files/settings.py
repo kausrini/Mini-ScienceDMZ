@@ -14,7 +14,7 @@ CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
 CAS_REDIRECT_URI = 'http://{}/guacamole/'.format(DOMAIN_NAME)
 
 GUACAMOLE_VERSION = '0.9.14'
-MYSQL_CONNECTOR_VERSION = '5.1.44'
+MYSQL_CONNECTOR_VERSION = '5.1.46'
 
 SQL_CONTAINER_NAME = 'sql_container'
 GUACAMOLE_CONTAINER_NAME = 'guacamole_container'

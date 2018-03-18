@@ -98,10 +98,6 @@ def check_dockerfile_links():
         '/binary/guacamole-auth-jdbc-{}.tar.gz'
     ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
-    if not url_exists(tomcat):
-        success = False
-        print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(tomcat))
-
     if not url_exists(guacamole_server):
         success = False
         print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(guacamole_server))
@@ -134,7 +130,7 @@ def check_dockerfile_links():
 def check_domain_name(domain_name):
     if not len(domain_name):
         print('[ERROR] Valid DOMAIN_NAME missing from settings.py file'
-              'Modify the value and re-run the script')
+              '\nModify the value and re-run the script')
         sys.exit()
 
 

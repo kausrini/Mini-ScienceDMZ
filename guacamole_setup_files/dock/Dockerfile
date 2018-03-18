@@ -95,5 +95,5 @@ RUN curl -O https://cdn.mysql.com//Downloads/Connector-J/mysql-connector-java-$M
 	rm mysql-connector-java-$MYSQL_CONNECTOR_VERSION.tar.gz && \
 	rm -rf mysql-connector-java-$MYSQL_CONNECTOR_VERSION
 
-
+# Starting the guacd process and Enabling it as a startup service
 

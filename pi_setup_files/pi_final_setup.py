@@ -66,7 +66,7 @@ def install_packages(http_setup):
         subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
     except subprocess.CalledProcessError as error:
         print ("[ERROR] One of the packages is not correctly installed, please check the installation.")
-        print error
+        print (error)
         sys.exit()
 
 # Sets up the dhcp server configuration
@@ -405,11 +405,12 @@ def setup_cronjobs():
     # Add our custom firewall ruels
     subprocess.check_output(['/etc/firewall/iptables.sh'])
 
+    
     # Save IPv4 rules
-    subprocess.check_output(['iptables-save','>','/etc/iptables/rules.v4'])
+    subprocess.check_output(['bash','-c','iptables-save','>','/etc/iptables/rules.v4'])
 
     # Save IPv6 rules
-    subprocess.check_output(['ip6tables-save','>','/etc/iptables/rules.v6'])
+    subprocess.check_output(['bash','-c','ip6tables-save','>','/etc/iptables/rules.v6'])
 
     # These lines will make sure that our firewall rules persist on reboot
     with open("/etc/rc.local","a") as f:

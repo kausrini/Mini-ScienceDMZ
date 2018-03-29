@@ -2,10 +2,6 @@
 
 #IPV4 RULES
 
-# Flush existing Input and Output policy
-iptables -F INPUT
-iptables -F OUTPUT
-
 # Default policy for Input and Output
 iptables -P OUTPUT  ACCEPT
 iptables -P INPUT  DROP
@@ -36,10 +32,6 @@ iptables -A INPUT -m limit --limit 5/min -j LOG --log-prefix "iptables denied: "
 
 #IPV6 RULES
 
-# Flush chains
-ip6tables -F INPUT
-ip6tables -F FORWARD
-ip6tables -F OUTPUT
 
 # Set up default policies
 ip6tables -P INPUT DROP

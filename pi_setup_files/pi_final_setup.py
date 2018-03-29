@@ -50,7 +50,7 @@ def upgrade_packages():
 # Installs all required packages for our application
 def install_packages(http_setup):
 
-    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests']
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests','perfsonar-testpoint','iptables-persistent']
 
     if not http_setup:
         packages.append('python-certbot-apache')
@@ -380,7 +380,6 @@ def setup_cronjobs():
     # Update dns every one hour.
     # Start docker containers on boot (Todo Python script for this with proper checks of existence of containers)
     cron_jobs_list = [
-        '@reboot /etc/firewall/iptables.sh\n',
         '@reboot docker start sql_container\n',
         '@reboot docker start guacamole_container\n',
         '0 * * * * python /home/pi/minidmz/sendStatus.py\n'

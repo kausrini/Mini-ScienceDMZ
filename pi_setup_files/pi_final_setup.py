@@ -398,6 +398,20 @@ def setup_cronjobs():
     subprocess.check_output(['crontab', file_path])
     os.remove(file_path)
 
+    # Add our custom firewall ruels
+    subprocess.check_output(['/etc/firewall/iptables.sh'])
+
+    # Save IPv4 rules
+    subprocess.check_output(['iptables-save','>','/etc/iptables/rules.v4'])
+
+    # Save IPv6 rules
+    subprocess.check_output(['ip6tables-save','>','/etc/iptables/rules.v6'])
+
+    # These lines will make sure that our firewall rules persist on reboot
+    with open("/etc/rc.local","a") as f:
+        f.write("iptables-restore < /etc/iptables/rules.v4")
+        f.write("\n")
+        f.write("ip6tables-restore < /etc/iptables/rules.v6")
 
 # Rebooting the raspberry pi
 def clean_up_setup():

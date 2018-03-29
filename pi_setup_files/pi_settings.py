@@ -9,6 +9,11 @@ import shutil
 # Store your registered Domain name here.
 DOMAIN_NAME = ''
 
+# Note how the url ends in cas. It MUST BE the base cas server.
+# Do not use the CAS login url (Ex : https://cas.iu.edu/cas/login or https://www.purdue.edu/apps/account/cas/login)
+CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
+CAS_VALIDATION_ENDPOINT = CAS_AUTHORIZATION_ENDPOINT + '/serviceValidate'
+
 
 # Checks if valid values entered for setup settings in pi_settings.py file
 def test_values():

@@ -2,8 +2,6 @@
 
 import argparse
 import os
-import shutil
-
 import subprocess
 import sys
 import time
@@ -50,7 +48,7 @@ def upgrade_packages():
 # Installs all required packages for our application
 def install_packages(http_setup):
 
-    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests']
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'libapache2-mod-auth-cas', 'python3-requests']
 
     if not http_setup:
         packages.append('python-certbot-apache')
@@ -131,18 +129,18 @@ def certbot_tls_configuration(email_address, test):
 
 # Writes proxy configuration to http virtual host if http setup
 # Else writes redirection code to http virtual host if https setup
-def apache_http_configuration(proxy_config, miscellaneous_headers, https):
+def apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, https_redirection):
 
     default_cofig_path = '/etc/apache2/sites-available/'
     default_config_name = '000-default.conf'
     default_config_file = default_cofig_path + default_config_name
 
-    if https:
+    if https_redirection:
         write_contents = '\n\tRewriteEngine on\n\tRewriteCond %{SERVER_NAME} =' + settings.DOMAIN_NAME + \
                          '\n\tRewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} ' \
                          '[END,NE,R=permanent]\n'
     else:
-        write_contents = proxy_config + miscellaneous_headers
+        write_contents = proxy_config + auth_config + miscellaneous_headers
 
     settings.backup_file(default_config_file)
 
@@ -164,7 +162,7 @@ def apache_http_configuration(proxy_config, miscellaneous_headers, https):
 
 
 # https configuration common to certbot and self-signed setup
-def https_config(proxy_config, miscellaneous_headers, ssl_config_file):
+def https_config(proxy_config, auth_config, miscellaneous_headers, ssl_config_file):
 
     # OSCP stapling configuration for our server
     ocsp_stapling_config = (
@@ -195,14 +193,14 @@ def https_config(proxy_config, miscellaneous_headers, ssl_config_file):
         for line in contents:
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
-                file.write(hsts_config + proxy_config + ocsp_stapling_config + miscellaneous_headers)
+                file.write(hsts_config + proxy_config + auth_config + ocsp_stapling_config + miscellaneous_headers)
 
 
 # self signed https configuration.
 def apache_self_signed_configuration(ssl_config_file, email_address, domain_name):
 
     cert_path = '/etc/minidmz_certs/'
-    dh_param_file = 'dhparam.pem'
+    # dh_param_file = 'dhparam.pem'
 
     # Enabling rewrite engine for apache2 https redirection
     subprocess.check_output(['a2enmod', 'rewrite'])
@@ -226,9 +224,9 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
 
     # TODO: Make DH group generation optional. Ask user if they want more secure tls connections.
     # Warn them it'll take additional 30 mins of setup time.
-    #diffie_hellman_group_command = ['openssl', 'dhparam', '-out', cert_path + dh_param_file, '2048']
-    #print('Generating Diffie-Hellman Group for negotiating perfect forward secrecy. This will take around 30 minutes!')
-    #subprocess.check_output(diffie_hellman_group_command)
+    # diffie_hellman_group_command = ['openssl', 'dhparam', '-out', cert_path + dh_param_file, '2048']
+    # print('Generating Diffie-Hellman Group for negotiating perfect forward secrecy.This will take around 30 minutes!')
+    # subprocess.check_output(diffie_hellman_group_command)
 
     # Generate certificate and key
     print('Generating a Self-Signed Certificate')
@@ -246,11 +244,11 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
         file.write(contents)
 
     # Modifying http configuration for https redirection
-    apache_http_configuration(None, None, True)
+    apache_http_configuration(None, None, None, True)
 
 
 # Https Configuration
-def apache_https_configuration(proxy_config, miscellaneous_headers, email_address, self_signed_cert):
+def apache_https_configuration(proxy_config, auth_config, miscellaneous_headers, email_address, self_signed_cert):
 
     ssl_stapling_cache = (
         '\n\n\t# The SSL Stapling Cache global parameter'
@@ -269,7 +267,7 @@ def apache_https_configuration(proxy_config, miscellaneous_headers, email_addres
     else:
         ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
 
-    https_config(proxy_config, miscellaneous_headers, ssl_config_file)
+    https_config(proxy_config, auth_config, miscellaneous_headers, ssl_config_file)
 
     ssl_mod_file = '/etc/apache2/mods-available/ssl.conf'
 
@@ -293,11 +291,8 @@ def apache_https_configuration(proxy_config, miscellaneous_headers, email_addres
 def apache_configuration(http_setup, self_signed_cert, email_id):
     print("Creating the Reverse Proxy Configuration and securing Apache server")
 
-    # For proxying
-    subprocess.check_output(['a2enmod', 'proxy_http'])
-    subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
-    # For enabling HSTS
-    subprocess.check_output(['a2enmod', 'headers'])
+    # Enabling modules for proxying, HSTS and CAS
+    subprocess.check_output(['a2enmod', 'proxy_http', 'proxy_wstunnel', 'headers', 'auth_cas'])
 
     # The first proxy pass MUST be to websocket tunnel.
     # If the first proxy pass is for just guacamole connection defaults to HTTP Tunnel
@@ -325,10 +320,17 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
         '\n\tHeader always set X-Xss-Protection "1; mode=block"\n'
     )
 
+    # CAS Config
+    auth_config = ('\n\tCASCookiePath /var/cache/apache2/mod_auth_cas/'
+                   '\n\tCASLoginURL ' + settings.CAS_AUTHORIZATION_ENDPOINT +
+                   '\n\tCASValidateURL ' + settings.CAS_VALIDATION_ENDPOINT +
+                   '\n\n\t<Location />\n\t\tAuthType CAS\n\t\trequire valid-user\n\t</Location>\n'
+                   '\n\tRequestHeader set REMOTE_USER expr=%{REMOTE_USER}\n')
+
     if http_setup:
-        apache_http_configuration(proxy_config, miscellaneous_headers, False)
+        apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, False)
     else:
-        apache_https_configuration(proxy_config, miscellaneous_headers, email_id, self_signed_cert)
+        apache_https_configuration(proxy_config, auth_config, miscellaneous_headers, email_id, self_signed_cert)
 
     apache_config_file = '/etc/apache2/apache2.conf'
 

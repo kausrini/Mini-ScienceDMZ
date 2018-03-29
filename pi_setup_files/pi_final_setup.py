@@ -50,6 +50,16 @@ def upgrade_packages():
 # Installs all required packages for our application
 def install_packages(http_setup):
 
+    # path for perfsonar packages
+    path_for_perfsonar_packages = '/etc/apt/sources.list.d/'
+
+    # Add perfsonar packages to apt
+    subprocess.call(['wget', '-P', path_for_perfsonar_packages , 'http://downloads.perfsonar.net/debian/perfsonar-wheezy-release.list'])
+    subprocess.call(['wget', '-qO','-','http://downloads.perfsonar.net/debian/perfsonar-debian-official.gpg.key','|','apt-key','add','-'])
+
+    # Refresh apt
+    subprocess.call(['apt-get', 'update'])
+    
     packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests','perfsonar-testpoint','iptables-persistent']
 
     if not http_setup:
@@ -62,8 +72,11 @@ def install_packages(http_setup):
     print('Updating packages existing packages')
     subprocess.call(['apt-get', 'update'])
     print('Installing the following packages {}'.format(", ".join(packages)))
-    subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
-
+    try:
+        subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
+    except:
+        print "One of the packages is not installed, please check the installation."
+        sys.exit()
 
 # Sets up the dhcp server configuration
 def isc_dhcp_server_configuration():

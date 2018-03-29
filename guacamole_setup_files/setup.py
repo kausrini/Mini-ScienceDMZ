@@ -96,11 +96,6 @@ def generate_guac_properties(mysql_user_password, directories):
             'guacd-hostname: localhost\n'
             'guacd-port: 4822\n'
         )
-        # values for CAS authentication module
-        cas_values = (
-            'cas-authorization-endpoint: {}\n'
-            'cas-redirect-uri: {}\n'
-        ).format(settings.CAS_AUTHORIZATION_ENDPOINT, settings.CAS_REDIRECT_URI)
         mysql_host = 'mysql-hostname: {}\n'.format(settings.SQL_CONTAINER_NAME)
         mysql_port = 'mysql-port: 3306\n'
         mysql_database = 'mysql-database: guacamole_db\n'
@@ -109,7 +104,7 @@ def generate_guac_properties(mysql_user_password, directories):
         # Values for MYSQL Authentication
         mysql_values = mysql_host + mysql_port + mysql_database + mysql_username + mysql_password
 
-        file.write(guacd_values + cas_values + mysql_values)
+        file.write(guacd_values + mysql_values)
 
     os.chmod(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties', 0o600)
 

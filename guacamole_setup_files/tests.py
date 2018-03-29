@@ -84,11 +84,6 @@ def check_dockerfile_links():
         '/binary/guacamole-{}.war'
     ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
 
-    guacamole_cas = (
-        'http://apache.mirrors.tds.net/guacamole/{}'
-        '/binary/guacamole-auth-cas-{}.tar.gz'
-    ).format(settings.GUACAMOLE_VERSION, settings.GUACAMOLE_VERSION)
-
     mysql_connector = (
         'https://cdn.mysql.com//Downloads/Connector-J/mysql-connector-java-{}.tar.gz'
     ).format(settings.MYSQL_CONNECTOR_VERSION)
@@ -106,9 +101,6 @@ def check_dockerfile_links():
         success = False
         print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(guacamole_client))
 
-    if not url_exists(guacamole_cas):
-        success = False
-        print('[Error] The link {} specified in the Guacamole Dockerfile is invalid.'.format(guacamole_cas))
 
     if not url_exists(mysql_connector):
         success = False

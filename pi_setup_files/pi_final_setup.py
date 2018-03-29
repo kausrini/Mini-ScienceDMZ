@@ -49,18 +49,8 @@ def upgrade_packages():
 
 # Installs all required packages for our application
 def install_packages(http_setup):
-
-    # path for perfsonar packages
-    path_for_perfsonar_packages = '/etc/apt/sources.list.d/'
-
-    # Add perfsonar packages to apt
-    subprocess.call(['wget', '-P', path_for_perfsonar_packages , 'http://downloads.perfsonar.net/debian/perfsonar-wheezy-release.list'])
-    subprocess.call(['wget', '-qO','-','http://downloads.perfsonar.net/debian/perfsonar-debian-official.gpg.key','|','apt-key','add','-'])
-
-    # Refresh apt
-    subprocess.call(['apt-get', 'update'])
     
-    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests','perfsonar-testpoint','iptables-persistent']
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests','iptables-persistent']
 
     if not http_setup:
         packages.append('python-certbot-apache')
@@ -74,8 +64,9 @@ def install_packages(http_setup):
     print('Installing the following packages {}'.format(", ".join(packages)))
     try:
         subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
-    except:
-        print "One of the packages is not installed, please check the installation."
+    except subprocess.CalledProcessError as error:
+        print ("[ERROR] One of the packages is not correctly installed, please check the installation.")
+        print error
         sys.exit()
 
 # Sets up the dhcp server configuration

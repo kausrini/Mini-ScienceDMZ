@@ -49,8 +49,15 @@ def upgrade_packages():
 
 # Installs all required packages for our application
 def install_packages(http_setup):
+
+    # Get the source to download perfsonar
+    out = subprocess.check_output(['wget','-P','/etc/apt/sources.list.d/','http://downloads.perfsonar.net/debian/perfsonar-jessie-release.list'])
+
+    # Add key
+    subprocess.call(['wget -qO - http://downloads.perfsonar.net/debian/perfsonar-debian-official.gpg.key | apt-key add -'],shell=True)
+
     
-    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests','iptables-persistent']
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests','iptables-persistent','perfsonar-testpoint']
 
     if not http_setup:
         packages.append('python-certbot-apache')
@@ -64,6 +71,9 @@ def install_packages(http_setup):
     print('Installing the following packages {}'.format(", ".join(packages)))
     try:
         subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
+        subprocess.call(['sudo','apt-get','-f','install'])
+        subprocess.call('/usr/lib/perfsonar/scripts/install-optional-packages.py',shell=True)
+
     except subprocess.CalledProcessError as error:
         print ("[ERROR] One of the packages is not correctly installed, please check the installation.")
         print (error)
@@ -414,9 +424,10 @@ def setup_cronjobs():
 
     # These lines will make sure that our firewall rules persist on reboot
     with open("/etc/rc.local","a") as f:
-        f.write("iptables-restore < /etc/iptables/rules.v4")
+        f.write("sudo iptables-restore < /etc/iptables/rules.v4")
         f.write("\n")
         f.write("ip6tables-restore < /etc/iptables/rules.v6")
+        f.write("\n")
 
 # Rebooting the raspberry pi
 def clean_up_setup():

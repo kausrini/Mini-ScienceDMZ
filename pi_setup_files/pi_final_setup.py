@@ -47,8 +47,7 @@ def upgrade_packages():
 
 # Installs all required packages for our application
 def install_packages(http_setup):
-
-    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'libapache2-mod-auth-cas', 'python3-requests']
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests']
 
     if not http_setup:
         packages.append('python-certbot-apache')
@@ -130,7 +129,6 @@ def certbot_tls_configuration(email_address, test):
 # Writes proxy configuration to http virtual host if http setup
 # Else writes redirection code to http virtual host if https setup
 def apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, https_redirection):
-
     default_cofig_path = '/etc/apache2/sites-available/'
     default_config_name = '000-default.conf'
     default_config_file = default_cofig_path + default_config_name
@@ -163,7 +161,6 @@ def apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, 
 
 # https configuration common to certbot and self-signed setup
 def https_config(proxy_config, auth_config, miscellaneous_headers, ssl_config_file):
-
     # OSCP stapling configuration for our server
     ocsp_stapling_config = (
         '\n\n\t#OSCP Stapling Configuration'
@@ -198,7 +195,6 @@ def https_config(proxy_config, auth_config, miscellaneous_headers, ssl_config_fi
 
 # self signed https configuration.
 def apache_self_signed_configuration(ssl_config_file, email_address, domain_name):
-
     cert_path = '/etc/minidmz_certs/'
     # dh_param_file = 'dhparam.pem'
 
@@ -249,7 +245,6 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
 
 # Https Configuration
 def apache_https_configuration(proxy_config, auth_config, miscellaneous_headers, email_address, self_signed_cert):
-
     ssl_stapling_cache = (
         '\n\n\t# The SSL Stapling Cache global parameter'
         '\n\tSSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(128000)'
@@ -287,12 +282,26 @@ def apache_https_configuration(proxy_config, auth_config, miscellaneous_headers,
                 file.write(ssl_stapling_cache)
 
 
+# Returns the list of the authentication module package(s)
+# Returns the configuration for the corresponding module
+def fetch_authentication_configuration():
+    # CAS Config
+    cas_auth_config = ('\n\tCASCookiePath /var/cache/apache2/mod_auth_cas/'
+                       '\n\tCASLoginURL ' + settings.CAS_AUTHORIZATION_ENDPOINT +
+                       '\n\tCASValidateURL ' + settings.CAS_VALIDATION_ENDPOINT +
+                       '\n\n\t<Location />\n\t\tAuthType CAS\n\t\trequire valid-user\n\t</Location>\n'
+                       '\n\tRequestHeader set REMOTE_USER expr=%{REMOTE_USER}\n')
+
+    cas_auth_packages = ['libapache2-mod-auth-cas']
+
+    cas_auth_modules = ['auth_cas']
+
+    return cas_auth_modules, cas_auth_packages, cas_auth_config
+
+
 # Creating configuration to proxy requests to the tomcat container
 def apache_configuration(http_setup, self_signed_cert, email_id):
     print("Creating the Reverse Proxy Configuration and securing Apache server")
-
-    # Enabling modules for proxying, HSTS and CAS
-    subprocess.check_output(['a2enmod', 'proxy_http', 'proxy_wstunnel', 'headers', 'auth_cas'])
 
     # The first proxy pass MUST be to websocket tunnel.
     # If the first proxy pass is for just guacamole connection defaults to HTTP Tunnel
@@ -320,17 +329,15 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
         '\n\tHeader always set X-Xss-Protection "1; mode=block"\n'
     )
 
-    # CAS Config
-    auth_config = ('\n\tCASCookiePath /var/cache/apache2/mod_auth_cas/'
-                   '\n\tCASLoginURL ' + settings.CAS_AUTHORIZATION_ENDPOINT +
-                   '\n\tCASValidateURL ' + settings.CAS_VALIDATION_ENDPOINT +
-                   '\n\n\t<Location />\n\t\tAuthType CAS\n\t\trequire valid-user\n\t</Location>\n'
-                   '\n\tRequestHeader set REMOTE_USER expr=%{REMOTE_USER}\n')
+    # Authentication module installation command, Authentication module configuration
+    auth_modules, auth_packages, auth_config = fetch_authentication_configuration()
 
     if http_setup:
         apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, False)
     else:
         apache_https_configuration(proxy_config, auth_config, miscellaneous_headers, email_id, self_signed_cert)
+
+    subprocess.call(['apt-get', '-y', 'install'] + auth_packages)
 
     apache_config_file = '/etc/apache2/apache2.conf'
 
@@ -343,6 +350,9 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
     subprocess.check_output(['sed', '-i', '--',
                              's|Options Indexes FollowSymLinks|Options FollowSymLinks|g',
                              apache_config_file])
+
+    # Enabling modules for proxying, HSTS and CAS
+    subprocess.check_output(['a2enmod', 'proxy_http', 'proxy_wstunnel', 'headers'] + auth_modules)
 
     # Remove index file from /var/www/html
     try:
@@ -377,7 +387,6 @@ def guacamole_configuration():
 
 
 def setup_cronjobs():
-
     # Update dns after reboot.
     # Update dns every one hour.
     # Start docker containers on boot (Todo Python script for this with proper checks of existence of containers)

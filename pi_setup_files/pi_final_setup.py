@@ -71,7 +71,6 @@ def install_packages(http_setup):
     print('Installing the following packages {}'.format(", ".join(packages)))
     try:
         subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
-        subprocess.call(['sudo','apt-get','-f','install'])
         subprocess.call('/usr/lib/perfsonar/scripts/install-optional-packages.py',shell=True)
 
     except subprocess.CalledProcessError as error:
@@ -426,7 +425,7 @@ def setup_cronjobs():
     with open("/etc/rc.local","a") as f:
         f.write("sudo iptables-restore < /etc/iptables/rules.v4")
         f.write("\n")
-        f.write("ip6tables-restore < /etc/iptables/rules.v6")
+        f.write("sudo ip6tables-restore < /etc/iptables/rules.v6")
         f.write("\n")
 
 # Rebooting the raspberry pi

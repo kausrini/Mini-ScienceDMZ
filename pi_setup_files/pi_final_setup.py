@@ -42,24 +42,41 @@ def fetch_arguments():
 # configure packages before restart causes exceptions.
 def upgrade_packages():
     print('Upgrading existing packages')
-    subprocess.call(['apt-get', '-y', 'upgrade'])
+    subprocess.check_call(['apt-get', '-y', 'upgrade'])
 
 
 # Installs all required packages for our application
 def install_packages(http_setup):
-    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests']
+
+    # Get the source to download perfsonar
+    subprocess.check_output(['wget', '-P', '/etc/apt/sources.list.d/',
+                             'http://downloads.perfsonar.net/debian/perfsonar-jessie-release.list'])
+
+    # Add key
+    subprocess.check_call(
+        ['wget -qO - http://downloads.perfsonar.net/debian/perfsonar-debian-official.gpg.key | apt-key add -'],
+        shell=True)
+
+    packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests',
+                'iptables-persistent', 'perfsonar-testpoint']
 
     if not http_setup:
         packages.append('python-certbot-apache')
 
         # Installing certbot separately from source. Workaround for issues with certbot. Remove this in future.
-        subprocess.call(['wget', '-P', '/home/pi/', 'https://dl.eff.org/certbot-auto'])
-        subprocess.call(['sudo', 'chmod', 'a+x', '/home/pi/certbot-auto'])
+        subprocess.check_call(['wget', '-P', '/home/pi/', 'https://dl.eff.org/certbot-auto'])
+        subprocess.check_call(['chmod', 'a+x', '/home/pi/certbot-auto'])
 
-    print('Updating packages existing packages')
-    subprocess.call(['apt-get', 'update'])
+    print('Updating package lists')
+    subprocess.check_call(['apt-get', 'update'])
     print('Installing the following packages {}'.format(", ".join(packages)))
-    subprocess.call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
+    try:
+        subprocess.check_call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
+        subprocess.check_call('/usr/lib/perfsonar/scripts/install-optional-packages.py', shell=True)
+    except subprocess.CalledProcessError as error:
+        print("[ERROR] One of the packages is not correctly installed, please check the installation.")
+        print(error)
+        sys.exit()
 
 
 # Sets up the dhcp server configuration
@@ -129,6 +146,7 @@ def certbot_tls_configuration(email_address, test):
 # Writes proxy configuration to http virtual host if http setup
 # Else writes redirection code to http virtual host if https setup
 def apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, https_redirection):
+
     default_cofig_path = '/etc/apache2/sites-available/'
     default_config_name = '000-default.conf'
     default_config_file = default_cofig_path + default_config_name
@@ -160,22 +178,7 @@ def apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, 
 
 
 # https configuration common to certbot and self-signed setup
-def https_config(proxy_config, auth_config, miscellaneous_headers, ssl_config_file):
-    # OSCP stapling configuration for our server
-    ocsp_stapling_config = (
-        '\n\n\t#OSCP Stapling Configuration'
-        '\n\tSSLUseStapling on'
-        '\n\tSSLStaplingReturnResponderErrors off'
-        '\n\tSSLStaplingResponderTimeout 5'
-        '\n\n'
-    )
-
-    # HSTS configuration
-    hsts_config = (
-        '\n\n\t# HSTS for 1 year including the subdomains'
-        '\n\tHeader always set Strict-Transport-Security "max-age=31536000; includeSubDomains"'
-        '\n'
-    )
+def https_config(ssl_configuration, auth_config, ssl_config_file):
 
     settings.backup_file(ssl_config_file)
 
@@ -190,7 +193,7 @@ def https_config(proxy_config, auth_config, miscellaneous_headers, ssl_config_fi
         for line in contents:
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
-                file.write(hsts_config + proxy_config + auth_config + ocsp_stapling_config + miscellaneous_headers)
+                file.write(ssl_configuration + auth_config)
 
 
 # self signed https configuration.
@@ -245,11 +248,30 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
 
 # Https Configuration
 def apache_https_configuration(proxy_config, auth_config, miscellaneous_headers, email_address, self_signed_cert):
+
     ssl_stapling_cache = (
         '\n\n\t# The SSL Stapling Cache global parameter'
         '\n\tSSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(128000)'
         '\n'
     )
+
+    # OSCP stapling configuration for our server
+    ocsp_stapling_config = (
+        '\n\n\t#OSCP Stapling Configuration'
+        '\n\tSSLUseStapling on'
+        '\n\tSSLStaplingReturnResponderErrors off'
+        '\n\tSSLStaplingResponderTimeout 5'
+        '\n\n'
+    )
+
+    # HSTS configuration
+    hsts_config = (
+        '\n\n\t# HSTS for 1 year including the subdomains'
+        '\n\tHeader always set Strict-Transport-Security "max-age=31536000; includeSubDomains"'
+        '\n'
+    )
+
+    common_ssl_configuration = proxy_config + miscellaneous_headers + hsts_config
 
     if self_signed_cert:
         ssl_config_path = '/etc/apache2/sites-available/'
@@ -261,25 +283,28 @@ def apache_https_configuration(proxy_config, auth_config, miscellaneous_headers,
         subprocess.check_output(['a2ensite', ssl_config_name])
     else:
         ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
+        # OSCP stapling configured if certbot is used.
+        common_ssl_configuration = common_ssl_configuration + ocsp_stapling_config
 
-    https_config(proxy_config, auth_config, miscellaneous_headers, ssl_config_file)
+    https_config(common_ssl_configuration, auth_config, ssl_config_file)
 
-    ssl_mod_file = '/etc/apache2/mods-available/ssl.conf'
+    # No need to enable OSCP if self signed
+    if not self_signed_cert:
+        ssl_mod_file = '/etc/apache2/mods-available/ssl.conf'
+        settings.backup_file(ssl_mod_file)
 
-    settings.backup_file(ssl_mod_file)
+        with open(ssl_mod_file, 'r') as file:
+            contents = file.readlines()
 
-    with open(ssl_mod_file, 'r') as file:
-        contents = file.readlines()
+        if len(contents) == 0:
+            print('[ERROR]The {} file has no contents'.format(ssl_mod_file))
+            sys.exit()
 
-    if len(contents) == 0:
-        print('[ERROR]The {} file has no contents'.format(ssl_mod_file))
-        sys.exit()
-
-    with open(ssl_mod_file, 'w') as file:
-        for line in contents:
-            file.write(line)
-            if line.strip() == '<IfModule mod_ssl.c>':
-                file.write(ssl_stapling_cache)
+        with open(ssl_mod_file, 'w') as file:
+            for line in contents:
+                file.write(line)
+                if line.strip() == '<IfModule mod_ssl.c>':
+                    file.write(ssl_stapling_cache)
 
 
 # Returns the list of the authentication module package(s)
@@ -366,7 +391,7 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
 # Installing docker
 def docker_install():
     print('Installing Docker module')
-    subprocess.call('curl -sSL https://get.docker.com | sh', shell=True)
+    subprocess.check_call('curl -sSL https://get.docker.com | sh', shell=True)
     subprocess.check_output(['systemctl', 'enable', 'docker'])
     subprocess.check_output(['systemctl', 'start', 'docker'])
     subprocess.check_output(['usermod', '-aG', 'docker', 'pi'])
@@ -380,7 +405,7 @@ def guacamole_configuration():
         print('Guacamole setup files already exists in {}'.format(path))
         return
 
-    git_command = 'git clone https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
+    git_command = 'git clone clone --branch master https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
     print('Fetching the guacamole setup files from git repository')
     subprocess.check_output(['runuser', '-l', 'pi', '-c', git_command])
     subprocess.check_output(['chmod', '774', path + '/guacamole_setup_files/setup.py'])
@@ -391,7 +416,6 @@ def setup_cronjobs():
     # Update dns every one hour.
     # Start docker containers on boot (Todo Python script for this with proper checks of existence of containers)
     cron_jobs_list = [
-        '@reboot /etc/firewall/iptables.sh\n',
         '@reboot docker start sql_container\n',
         '@reboot docker start guacamole_container\n',
         '0 * * * * python /home/pi/minidmz/sendStatus.py\n'
@@ -409,6 +433,22 @@ def setup_cronjobs():
 
     subprocess.check_output(['crontab', file_path])
     os.remove(file_path)
+
+    # Add our custom firewall ruels
+    subprocess.check_output(['/etc/firewall/iptables.sh'])
+
+    # Save IPv4 rules
+    subprocess.check_output(['bash', '-c', 'iptables-save', '>', '/etc/iptables/rules.v4'])
+
+    # Save IPv6 rules
+    subprocess.check_output(['bash', '-c', 'ip6tables-save', '>', '/etc/iptables/rules.v6'])
+
+    # These lines will make sure that our firewall rules persist on reboot
+    with open("/etc/rc.local", "a") as f:
+        f.write("sudo iptables-restore < /etc/iptables/rules.v4")
+        f.write("\n")
+        f.write("sudo ip6tables-restore < /etc/iptables/rules.v6")
+        f.write("\n")
 
 
 # Rebooting the raspberry pi

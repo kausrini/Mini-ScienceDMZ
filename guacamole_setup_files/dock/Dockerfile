@@ -86,4 +86,4 @@ RUN curl -O https://cdn.mysql.com//Downloads/Connector-J/mysql-connector-java-$M
 	rm -rf mysql-connector-java-$MYSQL_CONNECTOR_VERSION
 	
 # Starting the guacd process with tomcat
-RUN sed -i -- 's|#!/usr/bin/env bash|#!/usr/bin/env bash\n\n/etc/init.d/guacd start\n|' /usr/local/tomcat/bin/catalina.sh
+RUN sed -i -- 's|#!/usr/bin/env bash|#!/usr/bin/env bash\n\nif [ "$1" = "run" ] ; then\n\t/etc/init.d/guacd start\nfi\n|' /usr/local/tomcat/bin/catalina.sh

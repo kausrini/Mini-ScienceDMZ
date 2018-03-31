@@ -38,7 +38,7 @@ else
 fi
 
 # Update ipv4 address with dynv6 service
-$bin "http://ipv4.dynv6.com/api/update?hostname=$hostname&ipv4=auto&token=$token"
+$bin "https://ipv4.dynv6.com/api/update?hostname=$hostname&ipv4=auto&token=$token"
 
 if [ -z "$address" ]; then
   echo "no IPv6 address found"
@@ -49,7 +49,5 @@ else
   current=$address/$netmask  
 fi
 
-
-
 # Update ipv6 address with dynv6 service
-$bin "http://dynv6.com/api/update?hostname=$hostname&ipv6=$current&token=$token" 
+$bin "https://dynv6.com/api/update?hostname=$hostname&ipv6=$current&token=$token" 

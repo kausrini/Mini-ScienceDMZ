@@ -428,8 +428,8 @@ def setup_cronjobs():
     cron_file_name = 'temp_cron'
     file_path = '/tmp/' + cron_file_name
 
-    with open(file_path, 'w') as file:
-        file.write(''.join(cron_jobs_list))
+    with open(file_path, 'w') as file_object:
+        file_object.write(''.join(cron_jobs_list))
 
     subprocess.check_output(['crontab', file_path])
     os.remove(file_path)
@@ -444,11 +444,11 @@ def setup_cronjobs():
     subprocess.check_output(['bash', '-c', 'ip6tables-save', '>', '/etc/iptables/rules.v6'])
 
     # These lines will make sure that our firewall rules persist on reboot
-    with open("/etc/rc.local", "a") as f:
-        f.write("sudo iptables-restore < /etc/iptables/rules.v4")
-        f.write("\n")
-        f.write("sudo ip6tables-restore < /etc/iptables/rules.v6")
-        f.write("\n")
+    with open("/etc/rc.local", "a") as file_object:
+        file_object.write("sudo iptables-restore < /etc/iptables/rules.v4")
+        file_object.write("\n")
+        file_object.write("sudo ip6tables-restore < /etc/iptables/rules.v6")
+        file_object.write("\n")
 
 
 # Rebooting the raspberry pi

@@ -110,8 +110,8 @@ def pi_configuration():
         print('[ERROR] {}'.format(error.strerror))
         sys.exit()
 
-    with open(config_file, 'a') as file:
-        file.write('gpu_mem=16')
+    with open(config_file, 'a') as file_object:
+        file_object.write('gpu_mem=16')
 
     # Forcing user to change default pi password
     print('Please change the default Rapberry Pi password')
@@ -125,8 +125,8 @@ def pi_configuration():
 
     # Creating a file called ssh in boot.
     # This is required to enable ssh connection to pi
-    with open('/boot/ssh', 'w') as file:
-        file.write('')
+    with open('/boot/ssh', 'w') as file_object:
+        file_object.write('')
 
     # Changing default keyboard layout to 'US'
     subprocess.check_output(['sed', '-i', '--',
@@ -184,8 +184,8 @@ def dns_configuration(base_path, wireless):
     os.chmod(path_name + file_name, 0o700)
     subprocess.check_output(['chown', 'root', path_name + file_name])
 
-    with open(base_path + token_file_name, 'r') as file:
-        data = file.readlines()
+    with open(base_path + token_file_name, 'r') as file_object:
+        data = file_object.readlines()
 
     dns_token = None
 
@@ -253,8 +253,8 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dynamic_dns,
         if not manual_config:
             write_values = write_values + ethernet_config_internet
 
-        with open(interfaces_file, 'a') as file:
-            file.write(write_values)
+        with open(interfaces_file, 'a') as file_object:
+            file_object.write(write_values)
         return
 
     # Wireless internet connection
@@ -294,12 +294,12 @@ def network_configuration(wifi_ssid, wpa_username, wpa_password, no_dynamic_dns,
 
     print('Adding WPA configuration to {} file'.format(wpa_config_file))
     settings.backup_file(wpa_config_file)
-    with open(wpa_config_file, 'a') as file:
-        file.write(final_wpa_config)
+    with open(wpa_config_file, 'a') as file_object:
+        file_object.write(final_wpa_config)
 
     print('Adding WIFI configuration to {} file'.format(interfaces_file))
-    with open(interfaces_file, 'a') as file:
-        file.write(loopback_config + ethernet_config_instrument + ''.join(wifi_config_list))
+    with open(interfaces_file, 'a') as file_object:
+        file_object.write(loopback_config + ethernet_config_instrument + ''.join(wifi_config_list))
 
 
 # Rebooting the raspberry pi

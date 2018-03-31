@@ -383,7 +383,7 @@ def guacamole_configuration():
         print('Guacamole setup files already exists in {}'.format(path))
         return
 
-    git_command = 'git clone https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
+    git_command = 'git clone clone --branch master https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
     print('Fetching the guacamole setup files from git repository')
     subprocess.check_output(['runuser', '-l', 'pi', '-c', git_command])
     subprocess.check_output(['chmod', '774', path + '/guacamole_setup_files/setup.py'])

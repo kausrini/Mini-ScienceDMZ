@@ -39,7 +39,7 @@ def fetch_argument():
 
 def user_prompt(prompt_message):
     while True:
-        sys.stdout.write(prompt_message + '? [Y/n] ')
+        sys.stdout.write(prompt_message + '? [y/n] ')
 
         valid_choices = {"yes": True, "y": True, "ye": True,
                          "no": False, "n": False}

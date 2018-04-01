@@ -433,14 +433,20 @@ def setup_cronjobs():
     subprocess.check_output(['crontab', file_path])
     os.remove(file_path)
 
-    # Add our custom firewall ruels
-    subprocess.check_output(['/etc/firewall/iptables.sh'])
+    if os.path.isfile('/etc/firewall/iptables.sh'):
+        # Add firewall rules
+        subprocess.check_output(['/etc/firewall/iptables.sh'])
+
+    if not os.path.isfile('/etc/iptables/rules.v4'):
+        open('/etc/iptables/rules.v4', 'a').close()
+    if not os.path.isfile('/etc/iptables/rules.v6'):
+        open('/etc/iptables/rules.v6','a').close()      
 
     # Save IPv4 rules
-    subprocess.check_output(['bash', '-c', 'iptables-save', '>', '/etc/iptables/rules.v4'])
+    subprocess.check_output(['su','root','-c', 'iptables-save >> /etc/iptables/rules.v4'])
 
     # Save IPv6 rules
-    subprocess.check_output(['bash', '-c', 'ip6tables-save', '>', '/etc/iptables/rules.v6'])
+    subprocess.check_output(['su','root','-c', 'ip6tables-save >> /etc/iptables/rules.v6'])
 
     # These lines will make sure that our firewall rules persist on reboot
     with open("/etc/rc.local", "a") as file_object:

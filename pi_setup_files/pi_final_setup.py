@@ -48,17 +48,8 @@ def upgrade_packages():
 # Installs all required packages for our application
 def install_packages(http_setup):
 
-    # Get the source to download perfsonar
-    subprocess.check_output(['wget', '-P', '/etc/apt/sources.list.d/',
-                             'http://downloads.perfsonar.net/debian/perfsonar-jessie-release.list'])
-
-    # Add key
-    subprocess.check_call(
-        ['wget -qO - http://downloads.perfsonar.net/debian/perfsonar-debian-official.gpg.key | apt-key add -'],
-        shell=True)
-
     packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests',
-                'iptables-persistent', 'perfsonar-testpoint']
+                'iptables-persistent']
 
     if not http_setup:
         packages.append('python-certbot-apache')
@@ -67,16 +58,24 @@ def install_packages(http_setup):
         subprocess.check_call(['wget', '-P', '/home/pi/', 'https://dl.eff.org/certbot-auto'])
         subprocess.check_call(['chmod', 'a+x', '/home/pi/certbot-auto'])
 
-    print('Updating package lists')
-    subprocess.check_call(['apt-get', 'update'])
     print('Installing the following packages {}'.format(", ".join(packages)))
     try:
         subprocess.check_call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
-        subprocess.check_call('/usr/lib/perfsonar/scripts/install-optional-packages.py', shell=True)
     except subprocess.CalledProcessError as error:
         print("[ERROR] One of the packages is not correctly installed, please check the installation.")
         print(error)
         sys.exit()
+
+    # Installs perfsonar testpoint on the device
+    
+    if os.path.isfile('/boot/pi_setup_files/perfsonar_install.py'):
+        try:
+            subprocess.check_call(['sudo','python3', 'perfsonar_install.py']),
+
+        except subprocess.CalledProcessError as err:
+            print("[ERROR] Perfsonar installation failed, please run the setup manually.")
+            print(err)
+            sys.exit()
 
 
 # Sets up the dhcp server configuration

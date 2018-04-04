@@ -96,8 +96,8 @@ def isc_dhcp_server_configuration():
     print('Adding the raspberry pi dhcp server configuration to {} file'.format(dhcpd_file))
 
     settings.backup_file(dhcpd_file)
-    with open(dhcpd_file, 'w') as file:
-        file.write(dhcp_config)
+    with open(dhcpd_file, 'w') as file_object:
+        file_object.write(dhcp_config)
 
     subprocess.check_output(['sed', '-i', '--',
                              's|INTERFACESv4=""|INTERFACESv4="eth0"|g',

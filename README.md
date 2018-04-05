@@ -1,7 +1,6 @@
 # A Mini-ScienceDMZ For Scientific Instruments
 
 ## Introduction
-Modern scientific instruments such as telescopes, electron microscopes, and DNA sequencers, capture and process data using on-board computers. These on-board computers transform what the instrument "sees" into digital data. In the case of a telescope, the onboard computer converts the lens' focused image into a digital jpeg file. Like most computers, these instruments are vulnerable to network-based attacks, which risk compromising data and harming the instrument. When an instrument is compromised via a network attack, the science it supports grinds to a halt. To ensure that researchers can maintain the control and integrity of their instruments and data, this project develops a device that works with the instruments' on-board computers to prevent unauthorized access and manipulation of data. The device serves as both a firewall for the instrument and as a data transfer system that ensures data collected by instrument is not altered. Technology developed through this project will have broader applications like protecting medical devices, industrial machines, and aircraft. 
 
 The project designs, develops, and tests the deployment of a small device that functions as a firewall, large file transfer facility, and network performance monitor. The device consists of a small, low-power box positioned between the instrument and the campus network. Firewall policies are configurable by the researcher (or their designate) via a cloud-based portal. The file transfer facility will transfer large data files over long distances, while maintaining reliable performance. This facility will also digitally sign files, so data integrity can be verified throughout the science workflow. In turn, the network performance monitor will interface with associated online systems, so performance bottlenecks can be easily identified. Ultimately, this architecture and implementation will ensure optimal data processing while safeguarding the integrity of the instrument and its data throughout the scientific workflow.
 
@@ -44,11 +43,14 @@ The project designs, develops, and tests the deployment of a small device that f
        If answered with yes, you will be prompted for username. Provide the username.
        Enter the wifi password when you are prompted for it.
        Change the default raspberry pi password to a **NEW_PASSWORD** when prompted for it.
+     - If wired internet connection, user must use an use ethernet usb adapter to connect via the raspberry pi's usb port.
      - Note this script has two optional arguments that user can use to modify the automated configuration of dynamic dns and dynamic ip configuration. Use `sudo /boot/pi_initial_setup.py -h` further information.
 
 12. Log into the raspberry pi with the username **pi** and the **NEW_PASSWORD**.
 
-13. Launch the final setup script using the following command and wait for the raspberry pi to reboot.
+13. Ensure that Remote Desktop Protocol is enabled in the scientific instrument being connected to the raspberry pi.
+
+14. Launch the final setup script using the following command and wait for the raspberry pi to reboot.
     ```
     sudo /boot/pi_final_setup.py -e YOUR_EMAIL_ADDRESS
     ```

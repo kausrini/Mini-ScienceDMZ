@@ -7,6 +7,7 @@ import sys
 import time
 
 import pi_settings as settings
+import perfsonar_install as perfinst
 
 
 # Fetches arguments from the user
@@ -45,8 +46,14 @@ def upgrade_packages():
     subprocess.check_call(['apt-get', '-y', 'upgrade'])
 
 
+def update_packages():
+    print('Updating apt')
+    subprocess.check_call(['apt-get','update'])
+
 # Installs all required packages for our application
 def install_packages(http_setup):
+
+    update_packages()
 
     packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests',
                 'iptables-persistent']
@@ -68,14 +75,7 @@ def install_packages(http_setup):
 
     # Installs perfsonar testpoint on the device
     
-    if os.path.isfile('/boot/pi_setup_files/perfsonar_install.py'):
-        try:
-            subprocess.check_call(['sudo','python3', 'perfsonar_install.py']),
-
-        except subprocess.CalledProcessError as err:
-            print("[ERROR] Perfsonar installation failed, please run the setup manually.")
-            print(err)
-            sys.exit()
+    perfinst.main()
 
 
 # Sets up the dhcp server configuration
@@ -443,16 +443,16 @@ def setup_cronjobs():
         open('/etc/iptables/rules.v6','a').close()      
 
     # Save IPv4 rules
-    subprocess.check_output(['su','root','-c', 'iptables-save >> /etc/iptables/rules.v4'])
+    subprocess.check_output(['su','root','-c', '/sbin/iptables-save >> /etc/iptables/rules.v4'])
 
     # Save IPv6 rules
-    subprocess.check_output(['su','root','-c', 'ip6tables-save >> /etc/iptables/rules.v6'])
+    subprocess.check_output(['su','root','-c', '/sbin/ip6tables-save >> /etc/iptables/rules.v6'])
 
     # These lines will make sure that our firewall rules persist on reboot
     with open("/etc/rc.local", "a") as file_object:
-        file_object.write("sudo iptables-restore < /etc/iptables/rules.v4")
+        file_object.write("sudo /sbin/iptables-restore < /etc/iptables/rules.v4")
         file_object.write("\n")
-        file_object.write("sudo ip6tables-restore < /etc/iptables/rules.v6")
+        file_object.write("sudo /sbin/ip6tables-restore < /etc/iptables/rules.v6")
         file_object.write("\n")
 
 

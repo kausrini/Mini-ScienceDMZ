@@ -17,6 +17,7 @@ DIRECTORY_BASE = 'base'
 DIRECTORY_DATABASE = 'database'
 DIRECTORY_GUACAMOLE = 'guacamole'
 DIRECTORY_GENERATED_FILES = 'generated_files'
+DIRECTORY_LOG_EMAIL = 'log_email'
 
 
 # Establishes the file directory to be used
@@ -26,6 +27,7 @@ DIRECTORY_GENERATED_FILES = 'generated_files'
 def fetch_file_directories():
     base_directory = os.path.dirname(os.path.realpath(__file__))
     directories = {
+        DIRECTORY_LOG_EMAIL: base_directory + '/..' + '/log_email',
         DIRECTORY_BASE : base_directory,
         DIRECTORY_DATABASE : base_directory + '/db',
         DIRECTORY_GUACAMOLE : base_directory + '/dock',

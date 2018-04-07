@@ -101,13 +101,9 @@ def pi_configuration():
     config_file = '/boot/config.txt'
     try:
         settings.backup_file(config_file)
-    except OSError as error:
-        if 'Permission denied' in error.strerror:
-            print("[ERROR] Code is executed as a non privileged user."
-                  "\n[ERROR] Please re-run the script as superuser. [ sudo ./{} ]".format(os.path.basename(__file__)))
-            sys.exit()
-        print('[ERROR] Unknown error occurred while accessing {} file'.format(config_file))
-        print('[ERROR] {}'.format(error.strerror))
+    except PermissionError:
+        print("[ERROR] Code is executed as a non privileged user."
+              "\n[ERROR] Please re-run the script as superuser. [ sudo ./{} ]".format(os.path.basename(__file__)))
         sys.exit()
 
     with open(config_file, 'a') as file_object:

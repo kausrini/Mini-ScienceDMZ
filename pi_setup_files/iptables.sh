@@ -2,6 +2,8 @@
 
 #IPV4 RULES
 
+echo "Setting IPv4 rules..."
+
 # Default policy for Input and Output
 iptables -P OUTPUT  ACCEPT
 iptables -P INPUT  DROP
@@ -32,6 +34,7 @@ iptables -A INPUT -m limit --limit 5/min -j LOG --log-prefix "iptables denied: "
 
 #IPV6 RULES
 
+echo "Setting IPv6 rules..."
 
 # Set up default policies
 ip6tables -P INPUT DROP

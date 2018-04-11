@@ -409,6 +409,21 @@ def guacamole_configuration():
     subprocess.check_output(['runuser', '-l', 'pi', '-c', git_command])
     subprocess.check_output(['chmod', '774', path + '/guacamole_setup_files/setup.py'])
 
+def restore_rules():
+    file_object = open("/etc/rc.local","r")
+    cont = file_object.readlines()
+    cont = cont[:-1]
+    file_object.close()
+
+    write_file = open("/etc/rc.local","w")
+    write_file.writelines([item for item in cont])
+    write_file.write("sudo /sbin/iptables-restore < /etc/iptables/rules.v4")
+    write_file.write("\n")
+    write_file.write("sudo /sbin/ip6tables-restore < /etc/iptables/rules.v6")
+    write_file.write("\n")
+    write_file.write("exit 0" + "\n")    
+    write_file.close()
+
 
 def setup_cronjobs():
     # Update dns after reboot.
@@ -448,14 +463,9 @@ def setup_cronjobs():
     # Save IPv6 rules
     subprocess.check_output(['su','root','-c', '/sbin/ip6tables-save >> /etc/iptables/rules.v6'])
 
-    # These lines will make sure that our firewall rules persist on reboot
-    with open("/etc/rc.local", "a") as file_object:
-        file_object.write("sudo /sbin/iptables-restore < /etc/iptables/rules.v4")
-        file_object.write("\n")
-        file_object.write("sudo /sbin/ip6tables-restore < /etc/iptables/rules.v6")
-        file_object.write("\n")
-
-
+    # These method will make sure that our firewall rules persist on reboot
+    restore_rules()
+    
 # Rebooting the raspberry pi
 def clean_up_setup():
     upgrade_packages()

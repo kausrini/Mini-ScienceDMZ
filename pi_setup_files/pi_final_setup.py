@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 import time
+
+from pathlib import Path
 
 import pi_settings as settings
 import perfsonar_install as perfinst
@@ -33,6 +36,11 @@ def fetch_arguments():
                         action='store_true'
                         )
 
+    parser.add_argument('-a', '--saml',
+                        help='Sets up SAML authentication',
+                        action='store_true'
+                        )
+
     args = parser.parse_args()
     return args
 
@@ -48,11 +56,11 @@ def upgrade_packages():
 
 def update_packages():
     print('Updating apt')
-    subprocess.check_call(['apt-get','update'])
+    subprocess.check_call(['apt-get', 'update'])
+
 
 # Installs all required packages for our application
 def install_packages(http_setup):
-
     update_packages()
 
     packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests',
@@ -74,7 +82,7 @@ def install_packages(http_setup):
         sys.exit()
 
     # Installs perfsonar testpoint on the device
-    
+
     perfinst.main()
 
 
@@ -145,7 +153,6 @@ def certbot_tls_configuration(email_address, test):
 # Writes proxy configuration to http virtual host if http setup
 # Else writes redirection code to http virtual host if https setup
 def apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, https_redirection):
-
     default_cofig_path = '/etc/apache2/sites-available/'
     default_config_name = '000-default.conf'
     default_config_file = default_cofig_path + default_config_name
@@ -178,7 +185,6 @@ def apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, 
 
 # https configuration common to certbot and self-signed setup
 def https_config(ssl_configuration, auth_config, ssl_config_file):
-
     settings.backup_file(ssl_config_file)
 
     with open(ssl_config_file, 'r') as file:
@@ -247,7 +253,6 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
 
 # Https Configuration
 def apache_https_configuration(proxy_config, auth_config, miscellaneous_headers, email_address, self_signed_cert):
-
     ssl_stapling_cache = (
         '\n\n\t# The SSL Stapling Cache global parameter'
         '\n\tSSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(128000)'
@@ -308,23 +313,93 @@ def apache_https_configuration(proxy_config, auth_config, miscellaneous_headers,
 
 # Returns the list of the authentication module package(s)
 # Returns the configuration for the corresponding module
-def fetch_authentication_configuration():
+def fetch_authentication_configuration(saml_authentication):
     # CAS Config
     cas_auth_config = ('\n\tCASCookiePath /var/cache/apache2/mod_auth_cas/'
                        '\n\tCASLoginURL ' + settings.CAS_AUTHORIZATION_ENDPOINT +
                        '\n\tCASValidateURL ' + settings.CAS_VALIDATION_ENDPOINT +
                        '\n\n\t<Location />\n\t\tAuthType CAS\n\t\trequire valid-user\n\t</Location>\n'
-                       '\n\tRequestHeader set REMOTE_USER expr=%{REMOTE_USER}\n')
-
+                       )
     cas_auth_packages = ['libapache2-mod-auth-cas']
-
     cas_auth_modules = ['auth_cas']
 
-    return cas_auth_modules, cas_auth_packages, cas_auth_config
+    # SAML auth configuration. Using Shibboleth.
+    saml_auth_config = ('\n\n\t<Location />\n\t\tAuthType Shibboleth\n\t\tShibRequireSession On'
+                        '\n\t\trequire valid-user\n\t</Location>\n'
+                        )
+    saml_auth_packages = ['libapache2-mod-shib2']
+    saml_auth_modules = ['shib2']
+
+    request_header_config = '\n\tRequestHeader set REMOTE_USER expr=%{REMOTE_USER}\n'
+
+    if not saml_authentication:
+        return cas_auth_modules, cas_auth_packages, cas_auth_config + request_header_config
+    else:
+        return saml_auth_modules, saml_auth_packages, saml_auth_config + request_header_config
+
+
+def read_saml_configuration():
+    config_file_path = Path('/boot/saml_config.json')
+
+    with config_file_path.open('r') as json_data_file:
+        data = json.load(json_data_file)
+
+    if not data['sso_entity_id'] or not data['metadata_uri']:
+        print('[Error] Missing configuration paramaters in {} file.'.format(config_file_path))
+        sys.exit()
+
+    return data['sso_entity_id'], data['metadata_uri']
+
+
+def saml_specific_configuration(domain_name, email):
+
+    sso_entity_id, metadata_uri = read_saml_configuration()
+
+    sibboleth_config_file = '/etc/shibboleth/shibboleth2.xml'
+
+    # Entity ID, Breaks if http configuration. TODO: Fix this later
+    application_entity_id = 'https://{}/shibboleth'.format(domain_name)
+
+    # Generating certificate for shibboleth
+    cert_gen_command = ('openssl req -newkey rsa:4096 -new -x509 -days 3652 -nodes -text -out /etc/shibboleth/sp-key.pem '
+                        '-keyout /etc/shibboleth/sp-cert.pem -subj "/C=US/ST=Indiana/L=Bloomington/O=Indiana University/'
+                        'OU=UITS/CN={}/emailAddress={}"').format(domain_name, email)
+
+    subprocess.check_output(cert_gen_command, shell=True)
+
+    # Setting the application entityID
+    subprocess.check_output(['sed', '-i', '--',
+                             's|ApplicationDefaults entityID="https://sp.example.org/shibboleth"|'
+                             'ApplicationDefaults entityID="{}"|g'.format(application_entity_id),
+                             sibboleth_config_file])
+
+    # Setting the SSO entityID
+    subprocess.check_output(['sed', '-i', '--',
+                             's|SSO entityID="https://idp.example.org/idp/shibboleth"|'
+                             'SSO entityID="{}"|g'.format(sso_entity_id),
+                             sibboleth_config_file])
+
+    # HTTPS configuration
+    subprocess.check_output(['sed', '-i', '--',
+                             's|handlerSSL="false"|handlerSSL="true"|g',
+                             sibboleth_config_file])
+    subprocess.check_output(['sed', '-i', '--',
+                             's|cookieProps="http"|cookieProps="https"|g',
+                             sibboleth_config_file])
+
+    # Error contact configuration
+    subprocess.check_output(['sed', '-i', '--',
+                             's|supportContact="root@localhost"|supportContact="{}"|g'.format(email),
+                             sibboleth_config_file])
+
+    metadata_value = '<MetadataProvider type="XML" reloadInterval="86400" uri="{}"/>'.format(metadata_uri)
+
+    with open(sibboleth_config_file, 'a') as f:
+        f.write(metadata_value)
 
 
 # Creating configuration to proxy requests to the tomcat container
-def apache_configuration(http_setup, self_signed_cert, email_id):
+def apache_configuration(http_setup, self_signed_cert, email_id, saml):
     print("Creating the Reverse Proxy Configuration and securing Apache server")
 
     # The first proxy pass MUST be to websocket tunnel.
@@ -354,7 +429,7 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
     )
 
     # Authentication module installation command, Authentication module configuration
-    auth_modules, auth_packages, auth_config = fetch_authentication_configuration()
+    auth_modules, auth_packages, auth_config = fetch_authentication_configuration(saml)
 
     if http_setup:
         apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, False)
@@ -364,7 +439,6 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
     subprocess.call(['apt-get', '-y', 'install'] + auth_packages)
 
     apache_config_file = '/etc/apache2/apache2.conf'
-
     settings.backup_file(apache_config_file)
 
     with open(apache_config_file, 'a') as file:
@@ -440,13 +514,13 @@ def setup_cronjobs():
     if not os.path.isfile('/etc/iptables/rules.v4'):
         open('/etc/iptables/rules.v4', 'a').close()
     if not os.path.isfile('/etc/iptables/rules.v6'):
-        open('/etc/iptables/rules.v6','a').close()      
+        open('/etc/iptables/rules.v6', 'a').close()
 
-    # Save IPv4 rules
-    subprocess.check_output(['su','root','-c', '/sbin/iptables-save >> /etc/iptables/rules.v4'])
+        # Save IPv4 rules
+    subprocess.check_output(['su', 'root', '-c', '/sbin/iptables-save >> /etc/iptables/rules.v4'])
 
     # Save IPv6 rules
-    subprocess.check_output(['su','root','-c', '/sbin/ip6tables-save >> /etc/iptables/rules.v6'])
+    subprocess.check_output(['su', 'root', '-c', '/sbin/ip6tables-save >> /etc/iptables/rules.v6'])
 
     # These lines will make sure that our firewall rules persist on reboot
     with open("/etc/rc.local", "a") as file_object:
@@ -473,16 +547,17 @@ if __name__ == '__main__':
     testing = arguments.testing
     http = arguments.insecure
     self_signed = arguments.self
+    saml = arguments.saml
     install_packages(http or self_signed)
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
-    if not http:
+    if not http or saml:
         if email is None:
             sys.stdout.write('\n\nEnter email address : ')
             email = input()
         if not self_signed:
             self_signed = certbot_tls_configuration(email, testing)
-    apache_configuration(http, self_signed, email)
+    apache_configuration(http, self_signed, email, saml)
     setup_cronjobs()
     clean_up_setup()

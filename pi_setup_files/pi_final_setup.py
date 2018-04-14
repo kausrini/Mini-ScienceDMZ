@@ -41,6 +41,11 @@ def fetch_arguments():
                         action='store_true'
                         )
 
+    parser.add_argument('-p', '--perfsonar',
+                        help='Sets up Perfsonar',
+                        action='store_true'
+                        )
+
     args = parser.parse_args()
     return args
 
@@ -80,10 +85,6 @@ def install_packages(http_setup):
         print("[ERROR] One of the packages is not correctly installed, please check the installation.")
         print(error)
         sys.exit()
-
-    # Installs perfsonar testpoint on the device
-
-    perfinst.main()
 
 
 # Sets up the dhcp server configuration
@@ -344,26 +345,29 @@ def read_saml_configuration():
     with config_file_path.open('r') as json_data_file:
         data = json.load(json_data_file)
 
-    if not data['sso_entity_id'] or not data['metadata_uri']:
+    if not data['sso_entity_id'].strip() or not data['metadata_uri'].strip():
         print('[Error] Missing configuration paramaters in {} file.'.format(config_file_path))
         sys.exit()
 
-    return data['sso_entity_id'], data['metadata_uri']
+    return data['sso_entity_id'].strip(), data['metadata_uri'].strip()
 
 
-def saml_specific_configuration(domain_name, email):
+def saml_specific_configuration(domain_name, contact_email):
 
     sso_entity_id, metadata_uri = read_saml_configuration()
 
     sibboleth_config_file = '/etc/shibboleth/shibboleth2.xml'
 
+    settings.backup_file(sibboleth_config_file)
+
     # Entity ID, Breaks if http configuration. TODO: Fix this later
     application_entity_id = 'https://{}/shibboleth'.format(domain_name)
 
     # Generating certificate for shibboleth
-    cert_gen_command = ('openssl req -newkey rsa:4096 -new -x509 -days 3652 -nodes -text -out /etc/shibboleth/sp-key.pem '
-                        '-keyout /etc/shibboleth/sp-cert.pem -subj "/C=US/ST=Indiana/L=Bloomington/O=Indiana University/'
-                        'OU=UITS/CN={}/emailAddress={}"').format(domain_name, email)
+    cert_gen_command = ('openssl req -newkey rsa:4096 -new -x509 -days 3652 -nodes -text '
+                        '-out /etc/shibboleth/sp-key.pem -keyout /etc/shibboleth/sp-cert.pem -subj "/C=US/ST=Indiana'
+                        '/L=Bloomington/O=Indiana University/'
+                        'OU=UITS/CN={}/emailAddress={}"').format(domain_name, contact_email)
 
     subprocess.check_output(cert_gen_command, shell=True)
 
@@ -389,13 +393,16 @@ def saml_specific_configuration(domain_name, email):
 
     # Error contact configuration
     subprocess.check_output(['sed', '-i', '--',
-                             's|supportContact="root@localhost"|supportContact="{}"|g'.format(email),
+                             's|supportContact="root@localhost"|supportContact="{}"|g'.format(contact_email),
                              sibboleth_config_file])
 
     metadata_value = '<MetadataProvider type="XML" reloadInterval="86400" uri="{}"/>'.format(metadata_uri)
 
-    with open(sibboleth_config_file, 'a') as f:
-        f.write(metadata_value)
+    # Metadata configuration
+    sed_command = ('s|<!-- Example of remotely supplied batch of signed metadata. -->|'
+                   '<!-- Example of remotely supplied batch of signed metadata. -->{}|g').format(metadata_value)
+
+    subprocess.check_output(['sed', '-i', '--', sed_command, sibboleth_config_file])
 
 
 # Creating configuration to proxy requests to the tomcat container
@@ -483,13 +490,14 @@ def guacamole_configuration():
     subprocess.check_output(['runuser', '-l', 'pi', '-c', git_command])
     subprocess.check_output(['chmod', '774', path + '/guacamole_setup_files/setup.py'])
 
+
 def restore_rules():
-    file_object = open("/etc/rc.local","r")
+    file_object = open("/etc/rc.local", "r")
     cont = file_object.readlines()
     cont = cont[:-1]
     file_object.close()
 
-    write_file = open("/etc/rc.local","w")
+    write_file = open("/etc/rc.local", "w")
     write_file.writelines([item for item in cont])
     write_file.write("sudo /sbin/iptables-restore < /etc/iptables/rules.v4")
     write_file.write("\n")
@@ -539,7 +547,8 @@ def setup_cronjobs():
 
     # These method will make sure that our firewall rules persist on reboot
     restore_rules()
-    
+
+
 # Rebooting the raspberry pi
 def clean_up_setup():
     upgrade_packages()
@@ -554,20 +563,26 @@ if __name__ == '__main__':
     if not settings.check_internet_connectivity():
         sys.exit(1)
     email = arguments.email
-    testing = arguments.testing
-    http = arguments.insecure
     self_signed = arguments.self
-    saml = arguments.saml
-    install_packages(http or self_signed)
+    install_packages(arguments.insecure or self_signed)
+
+    if arguments.perfsonar:
+        # Installs perfsonar testpoint on the device
+        perfinst.setup_perfsonar()
+
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
-    if not http or saml:
+    if not arguments.insecure or arguments.saml:
         if email is None:
-            sys.stdout.write('\n\nEnter email address : ')
+            sys.stdout.write('\n\nPlease enter your email address : ')
             email = input()
         if not self_signed:
-            self_signed = certbot_tls_configuration(email, testing)
-    apache_configuration(http, self_signed, email, saml)
+            self_signed = certbot_tls_configuration(email, arguments.testing)
+    apache_configuration(arguments.insecure, self_signed, email, arguments.saml)
+
+    if arguments.saml:
+        saml_specific_configuration(settings.DOMAIN_NAME, email)
+
     setup_cronjobs()
     clean_up_setup()

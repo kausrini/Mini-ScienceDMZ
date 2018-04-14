@@ -70,7 +70,7 @@ def install_additional_packages():
         sys.exit()
 
 
-def main():
+def setup_perfsonar():
     # Call all the required functions
     add_dependencies()
     install_perfsonar_testpoint()
@@ -78,4 +78,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    setup_perfsonar()

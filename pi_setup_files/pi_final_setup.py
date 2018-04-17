@@ -124,7 +124,8 @@ def certbot_tls_configuration(email_address, test):
     update_packages()
     # Install certbot package
     try:
-        subprocess.check_call(['DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install', 'python-certbot-apache', '-t', 'stretch-backports'])
+        subprocess.check_call(['sudo','DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', '--allow-unauthenticated', 'install', 'python-certbot-apache',
+                               '-t', 'stretch-backports'])
     except subprocess.CalledProcessError as error:
         print("[ERROR] One of the packages is not correctly installed, please check the installation.")
         print(error)
@@ -141,7 +142,7 @@ def certbot_tls_configuration(email_address, test):
         if 'No such file or directory':
             print('[Warning] No dynamic dns script detected.')
 
-    certbot_arguments = ['sudo', '/home/pi/certbot-auto', '-n', '--apache', '-d', settings.DOMAIN_NAME]
+    certbot_arguments = ['sudo', 'certbot', '-n', '--apache', '-d', settings.DOMAIN_NAME]
 
     if test:
         certbot_arguments.append('--staging')

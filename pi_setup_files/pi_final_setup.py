@@ -66,17 +66,18 @@ def update_packages():
 
 # Installs all required packages for our application
 def install_packages(http_setup):
+
+    apt_sources_file = '/etc/apt/sources.list'
+
+    # Adding stretch backports
+    with open(apt_sources_file, 'a') as file_object:
+        file_object.write('\ndeb http://ftp.debian.org/debian stretch-backports main')
+
+
     update_packages()
 
     packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests',
                 'iptables-persistent']
-
-    if not http_setup:
-        packages.append('python-certbot-apache')
-
-        # Installing certbot separately from source. Workaround for issues with certbot. Remove this in future.
-        subprocess.check_call(['wget', '-P', '/home/pi/', 'https://dl.eff.org/certbot-auto'])
-        subprocess.check_call(['chmod', 'a+x', '/home/pi/certbot-auto'])
 
     print('Installing the following packages {}'.format(", ".join(packages)))
     try:
@@ -120,6 +121,14 @@ def isc_dhcp_server_configuration():
 def certbot_tls_configuration(email_address, test):
     certbot_setup = False
     ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
+    update_packages()
+    # Install certbot package
+    try:
+        subprocess.check_call(['DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install', 'python-certbot-apache', '-t', 'stretch-backports'])
+    except subprocess.CalledProcessError as error:
+        print("[ERROR] One of the packages is not correctly installed, please check the installation.")
+        print(error)
+        sys.exit()
 
     if os.path.isdir('/etc/letsencrypt/live/' + settings.DOMAIN_NAME) and os.path.isfile(ssl_config_file):
         print('HTTPS already configured')

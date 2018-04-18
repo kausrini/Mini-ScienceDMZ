@@ -31,7 +31,7 @@ def fetch_argument():
 
 def user_prompt(prompt_message):
     while True:
-        sys.stdout.write(prompt_message + '? [Y/n] ')
+        sys.stdout.write(prompt_message + '? [y/n] ')
 
         valid_choices = {"yes": True, "y": True, "ye": True,
                          "no": False, "n": False}
@@ -71,18 +71,18 @@ def clean_directory_structure(directories):
 # A function which uses the openssl package in the operating system to generate mysql passwords
 def generate_passwords(generate, directories):
     if not generate:
-        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 'r') as file:
-            mysql_root_password = file.read()
-        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 'r') as file:
-            mysql_user_password = file.read()
+        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 'r') as file_object:
+            mysql_root_password = file_object.read()
+        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 'r') as file_object:
+            mysql_user_password = file_object.read()
     else:
         mysql_root_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).decode("utf-8").strip()
         mysql_user_password = subprocess.check_output(["openssl", "rand", "-hex", "18"]).decode("utf-8").strip()
-        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 'w') as file:
-            file.write(mysql_root_password)
+        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 'w') as file_object:
+            file_object.write(mysql_root_password)
         os.chmod(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_root_pass', 0o660)
-        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 'w') as file:
-            file.write(mysql_user_password)
+        with open(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 'w') as file_object:
+            file_object.write(mysql_user_password)
         os.chmod(directories[settings.DIRECTORY_GENERATED_FILES] + '/mysql_user_pass', 0o660)
 
     return mysql_root_password, mysql_user_password
@@ -90,17 +90,12 @@ def generate_passwords(generate, directories):
 
 # Generates guacamole.properties file
 def generate_guac_properties(mysql_user_password, directories):
-    with open(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties', 'w') as file:
+    with open(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties', 'w') as file_object:
         # Values for guacd
         guacd_values = (
             'guacd-hostname: localhost\n'
             'guacd-port: 4822\n'
         )
-        # values for CAS authentication module
-        cas_values = (
-            'cas-authorization-endpoint: {}\n'
-            'cas-redirect-uri: {}\n'
-        ).format(settings.CAS_AUTHORIZATION_ENDPOINT, settings.CAS_REDIRECT_URI)
         mysql_host = 'mysql-hostname: {}\n'.format(settings.SQL_CONTAINER_NAME)
         mysql_port = 'mysql-port: 3306\n'
         mysql_database = 'mysql-database: guacamole_db\n'
@@ -109,7 +104,7 @@ def generate_guac_properties(mysql_user_password, directories):
         # Values for MYSQL Authentication
         mysql_values = mysql_host + mysql_port + mysql_database + mysql_username + mysql_password
 
-        file.write(guacd_values + cas_values + mysql_values)
+        file_object.write(guacd_values + mysql_values)
 
     os.chmod(directories[settings.DIRECTORY_GUACAMOLE] + '/guacamole.properties', 0o600)
 
@@ -180,8 +175,8 @@ def fetch_equipment_ip():
     ip_address_list = []
 
     try:
-        with open('/var/lib/dhcp/dhcpd.leases', 'r') as file:
-            dhcpd_leases = file.read().strip()
+        with open('/var/lib/dhcp/dhcpd.leases', 'r') as file_object:
+            dhcpd_leases = file_object.read().strip()
     except FileNotFoundError as error:
         print("[Error] dhcp lease file {} not created yet. No leases issued yet! "
               "\nCheck if dhcpd and if equipment connected")

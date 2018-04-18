@@ -1,0 +1,14 @@
+{
+	"credentials":{
+		"username" : "",
+		"password" : ""
+	},
+	"mail_config":{
+		"sender_email_id" : "",
+		"receiver_email_id" : [
+			""
+		],
+		"smtp_server_name" : ""
+	}
+	
+}

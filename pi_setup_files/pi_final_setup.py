@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
-
 import subprocess
 import sys
 import time
 
+from pathlib import Path
+
 import pi_settings as settings
+import perfsonar_install as perfinst
 
 
 # Fetches arguments from the user
@@ -33,6 +36,16 @@ def fetch_arguments():
                         action='store_true'
                         )
 
+    parser.add_argument('-a', '--saml',
+                        help='Sets up SAML authentication',
+                        action='store_true'
+                        )
+
+    parser.add_argument('-p', '--perfsonar',
+                        help='Sets up Perfsonar',
+                        action='store_true'
+                        )
+
     args = parser.parse_args()
     return args
 
@@ -46,33 +59,29 @@ def upgrade_packages():
     subprocess.check_call(['apt-get', '-y', 'upgrade'])
 
 
+def update_packages():
+    print('Updating apt')
+    subprocess.check_call(['apt-get', 'update'])
+
+
 # Installs all required packages for our application
 def install_packages(http_setup):
-    # Get the source to download perfsonar
-    subprocess.check_output(['wget', '-P', '/etc/apt/sources.list.d/',
-                             'http://downloads.perfsonar.net/debian/perfsonar-jessie-release.list'])
 
-    # Add key
-    subprocess.check_call(
-        ['wget -qO - http://downloads.perfsonar.net/debian/perfsonar-debian-official.gpg.key | apt-key add -'],
-        shell=True)
+    apt_sources_file = '/etc/apt/sources.list'
+
+    # Adding stretch backports
+    with open(apt_sources_file, 'a') as file_object:
+        file_object.write('\ndeb http://ftp.debian.org/debian stretch-backports main')
+
+
+    update_packages()
 
     packages = ['isc-dhcp-server', 'nmap', 'git', 'apache2', 'python3-requests',
-                'iptables-persistent', 'perfsonar-testpoint']
+                'iptables-persistent']
 
-    if not http_setup:
-        packages.append('python-certbot-apache')
-
-        # Installing certbot separately from source. Workaround for issues with certbot. Remove this in future.
-        subprocess.check_call(['wget', '-P', '/home/pi/', 'https://dl.eff.org/certbot-auto'])
-        subprocess.check_call(['chmod', 'a+x', '/home/pi/certbot-auto'])
-
-    print('Updating package lists')
-    subprocess.check_call(['apt-get', 'update'])
     print('Installing the following packages {}'.format(", ".join(packages)))
     try:
         subprocess.check_call(['sudo', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', 'install'] + packages)
-        subprocess.check_call('/usr/lib/perfsonar/scripts/install-optional-packages.py', shell=True)
     except subprocess.CalledProcessError as error:
         print("[ERROR] One of the packages is not correctly installed, please check the installation.")
         print(error)
@@ -97,8 +106,8 @@ def isc_dhcp_server_configuration():
     print('Adding the raspberry pi dhcp server configuration to {} file'.format(dhcpd_file))
 
     settings.backup_file(dhcpd_file)
-    with open(dhcpd_file, 'w') as file:
-        file.write(dhcp_config)
+    with open(dhcpd_file, 'w') as file_object:
+        file_object.write(dhcp_config)
 
     subprocess.check_output(['sed', '-i', '--',
                              's|INTERFACESv4=""|INTERFACESv4="eth0"|g',
@@ -112,6 +121,15 @@ def isc_dhcp_server_configuration():
 def certbot_tls_configuration(email_address, test):
     certbot_setup = False
     ssl_config_file = '/etc/apache2/sites-available/000-default-le-ssl.conf'
+    update_packages()
+    # Install certbot package
+    try:
+        subprocess.check_call(['sudo','DEBIAN_FRONTEND=noninteractive', 'apt-get', '-y', '--allow-unauthenticated', 'install', 'python-certbot-apache',
+                               '-t', 'stretch-backports'])
+    except subprocess.CalledProcessError as error:
+        print("[ERROR] One of the packages is not correctly installed, please check the installation.")
+        print(error)
+        sys.exit()
 
     if os.path.isdir('/etc/letsencrypt/live/' + settings.DOMAIN_NAME) and os.path.isfile(ssl_config_file):
         print('HTTPS already configured')
@@ -124,7 +142,7 @@ def certbot_tls_configuration(email_address, test):
         if 'No such file or directory':
             print('[Warning] No dynamic dns script detected.')
 
-    certbot_arguments = ['sudo', '/home/pi/certbot-auto', '-n', '--apache', '-d', settings.DOMAIN_NAME]
+    certbot_arguments = ['sudo', 'certbot', '-n', '--apache', '-d', settings.DOMAIN_NAME]
 
     if test:
         certbot_arguments.append('--staging')
@@ -145,17 +163,17 @@ def certbot_tls_configuration(email_address, test):
 
 # Writes proxy configuration to http virtual host if http setup
 # Else writes redirection code to http virtual host if https setup
-def apache_http_configuration(proxy_config, miscellaneous_headers, https):
+def apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, https_redirection):
     default_cofig_path = '/etc/apache2/sites-available/'
     default_config_name = '000-default.conf'
     default_config_file = default_cofig_path + default_config_name
 
-    if https:
+    if https_redirection:
         write_contents = '\n\tRewriteEngine on\n\tRewriteCond %{SERVER_NAME} =' + settings.DOMAIN_NAME + \
                          '\n\tRewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} ' \
                          '[END,NE,R=permanent]\n'
     else:
-        write_contents = proxy_config + miscellaneous_headers
+        write_contents = proxy_config + auth_config + miscellaneous_headers
 
     settings.backup_file(default_config_file)
 
@@ -177,7 +195,7 @@ def apache_http_configuration(proxy_config, miscellaneous_headers, https):
 
 
 # https configuration common to certbot and self-signed setup
-def https_config(ssl_configuration, ssl_config_file):
+def https_config(ssl_configuration, auth_config, ssl_config_file):
     settings.backup_file(ssl_config_file)
 
     with open(ssl_config_file, 'r') as file:
@@ -191,7 +209,7 @@ def https_config(ssl_configuration, ssl_config_file):
         for line in contents:
             file.write(line)
             if line.strip() == 'DocumentRoot /var/www/html':
-                file.write(ssl_configuration)
+                file.write(ssl_configuration + auth_config)
 
 
 # self signed https configuration.
@@ -222,7 +240,7 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
     # TODO: Make DH group generation optional. Ask user if they want more secure tls connections.
     # Warn them it'll take additional 30 mins of setup time.
     # diffie_hellman_group_command = ['openssl', 'dhparam', '-out', cert_path + dh_param_file, '2048']
-    # print('Generating Diffie-Hellman Group for negotiating perfect forward secrecy. This will take around 30 minutes!')
+    # print('Generating Diffie-Hellman Group for negotiating perfect forward secrecy.This will take around 30 minutes!')
     # subprocess.check_output(diffie_hellman_group_command)
 
     # Generate certificate and key
@@ -241,11 +259,11 @@ def apache_self_signed_configuration(ssl_config_file, email_address, domain_name
         file.write(contents)
 
     # Modifying http configuration for https redirection
-    apache_http_configuration(None, None, True)
+    apache_http_configuration(None, None, None, True)
 
 
-# Https Configuration for both certbot and self-signed
-def apache_https_configuration(proxy_config, miscellaneous_headers, email_address, self_signed_cert):
+# Https Configuration
+def apache_https_configuration(proxy_config, auth_config, miscellaneous_headers, email_address, self_signed_cert):
     ssl_stapling_cache = (
         '\n\n\t# The SSL Stapling Cache global parameter'
         '\n\tSSLStaplingCache shmcb:${APACHE_RUN_DIR}/ssl_stapling_cache(128000)'
@@ -283,7 +301,7 @@ def apache_https_configuration(proxy_config, miscellaneous_headers, email_addres
         # OSCP stapling configured if certbot is used.
         common_ssl_configuration = common_ssl_configuration + ocsp_stapling_config
 
-    https_config(common_ssl_configuration, ssl_config_file)
+    https_config(common_ssl_configuration, auth_config, ssl_config_file)
 
     # No need to enable OSCP if self signed
     if not self_signed_cert:
@@ -304,15 +322,102 @@ def apache_https_configuration(proxy_config, miscellaneous_headers, email_addres
                     file.write(ssl_stapling_cache)
 
 
-# Creating configuration to proxy requests to the tomcat container
-def apache_configuration(http_setup, self_signed_cert, email_id):
-    print("Creating the Reverse Proxy Configuration and securing Apache server")
+# Returns the list of the authentication module package(s)
+# Returns the configuration for the corresponding module
+def fetch_authentication_configuration(saml_authentication):
+    # CAS Config
+    cas_auth_config = ('\n\tCASCookiePath /var/cache/apache2/mod_auth_cas/'
+                       '\n\tCASLoginURL ' + settings.CAS_AUTHORIZATION_ENDPOINT +
+                       '\n\tCASValidateURL ' + settings.CAS_VALIDATION_ENDPOINT +
+                       '\n\n\t<Location />\n\t\tAuthType CAS\n\t\trequire valid-user\n\t</Location>\n'
+                       )
+    cas_auth_packages = ['libapache2-mod-auth-cas']
+    cas_auth_modules = ['auth_cas']
 
-    # For proxying
-    subprocess.check_output(['a2enmod', 'proxy_http'])
-    subprocess.check_output(['a2enmod', 'proxy_wstunnel'])
-    # For enabling HSTS
-    subprocess.check_output(['a2enmod', 'headers'])
+    # SAML auth configuration. Using Shibboleth.
+    saml_auth_config = ('\n\n\t<Location />\n\t\tAuthType Shibboleth\n\t\tShibRequireSession On'
+                        '\n\t\trequire valid-user\n\t</Location>\n'
+                        )
+    saml_auth_packages = ['libapache2-mod-shib2']
+    saml_auth_modules = ['shib2']
+
+    request_header_config = '\n\tRequestHeader set REMOTE_USER expr=%{REMOTE_USER}\n'
+
+    if not saml_authentication:
+        return cas_auth_modules, cas_auth_packages, cas_auth_config + request_header_config
+    else:
+        return saml_auth_modules, saml_auth_packages, saml_auth_config + request_header_config
+
+
+def read_saml_configuration():
+    config_file_path = Path('/boot/saml_config.json')
+
+    with config_file_path.open('r') as json_data_file:
+        data = json.load(json_data_file)
+
+    if not data['sso_entity_id'].strip() or not data['metadata_uri'].strip():
+        print('[Error] Missing configuration paramaters in {} file.'.format(config_file_path))
+        sys.exit()
+
+    return data['sso_entity_id'].strip(), data['metadata_uri'].strip()
+
+
+def saml_specific_configuration(domain_name, contact_email):
+
+    sso_entity_id, metadata_uri = read_saml_configuration()
+
+    sibboleth_config_file = '/etc/shibboleth/shibboleth2.xml'
+
+    settings.backup_file(sibboleth_config_file)
+
+    # Entity ID, Breaks if http configuration. TODO: Fix this later
+    application_entity_id = 'https://{}/shibboleth'.format(domain_name)
+
+    # Generating certificate for shibboleth
+    cert_gen_command = ('openssl req -newkey rsa:4096 -new -x509 -days 3652 -nodes -text '
+                        '-out /etc/shibboleth/sp-key.pem -keyout /etc/shibboleth/sp-cert.pem -subj "/C=US/ST=Indiana'
+                        '/L=Bloomington/O=Indiana University/'
+                        'OU=UITS/CN={}/emailAddress={}"').format(domain_name, contact_email)
+
+    subprocess.check_output(cert_gen_command, shell=True)
+
+    # Setting the application entityID
+    subprocess.check_output(['sed', '-i', '--',
+                             's|ApplicationDefaults entityID="https://sp.example.org/shibboleth"|'
+                             'ApplicationDefaults entityID="{}"|g'.format(application_entity_id),
+                             sibboleth_config_file])
+
+    # Setting the SSO entityID
+    subprocess.check_output(['sed', '-i', '--',
+                             's|SSO entityID="https://idp.example.org/idp/shibboleth"|'
+                             'SSO entityID="{}"|g'.format(sso_entity_id),
+                             sibboleth_config_file])
+
+    # HTTPS configuration
+    subprocess.check_output(['sed', '-i', '--',
+                             's|handlerSSL="false"|handlerSSL="true"|g',
+                             sibboleth_config_file])
+    subprocess.check_output(['sed', '-i', '--',
+                             's|cookieProps="http"|cookieProps="https"|g',
+                             sibboleth_config_file])
+
+    # Error contact configuration
+    subprocess.check_output(['sed', '-i', '--',
+                             's|supportContact="root@localhost"|supportContact="{}"|g'.format(contact_email),
+                             sibboleth_config_file])
+
+    metadata_value = '<MetadataProvider type="XML" reloadInterval="86400" uri="{}"/>'.format(metadata_uri)
+
+    # Metadata configuration
+    sed_command = ('s|<!-- Example of remotely supplied batch of signed metadata. -->|'
+                   '<!-- Example of remotely supplied batch of signed metadata. -->{}|g').format(metadata_value)
+
+    subprocess.check_output(['sed', '-i', '--', sed_command, sibboleth_config_file])
+
+
+# Creating configuration to proxy requests to the tomcat container
+def apache_configuration(http_setup, self_signed_cert, email_id, saml):
+    print("Creating the Reverse Proxy Configuration and securing Apache server")
 
     # The first proxy pass MUST be to websocket tunnel.
     # If the first proxy pass is for just guacamole connection defaults to HTTP Tunnel
@@ -340,13 +445,17 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
         '\n\tHeader always set X-Xss-Protection "1; mode=block"\n'
     )
 
+    # Authentication module installation command, Authentication module configuration
+    auth_modules, auth_packages, auth_config = fetch_authentication_configuration(saml)
+
     if http_setup:
-        apache_http_configuration(proxy_config, miscellaneous_headers, False)
+        apache_http_configuration(proxy_config, auth_config, miscellaneous_headers, False)
     else:
-        apache_https_configuration(proxy_config, miscellaneous_headers, email_id, self_signed_cert)
+        apache_https_configuration(proxy_config, auth_config, miscellaneous_headers, email_id, self_signed_cert)
+
+    subprocess.call(['apt-get', '-y', 'install'] + auth_packages)
 
     apache_config_file = '/etc/apache2/apache2.conf'
-
     settings.backup_file(apache_config_file)
 
     with open(apache_config_file, 'a') as file:
@@ -356,6 +465,9 @@ def apache_configuration(http_setup, self_signed_cert, email_id):
     subprocess.check_output(['sed', '-i', '--',
                              's|Options Indexes FollowSymLinks|Options FollowSymLinks|g',
                              apache_config_file])
+
+    # Enabling modules for proxying, HSTS and CAS
+    subprocess.check_output(['a2enmod', 'proxy_http', 'proxy_wstunnel', 'headers'] + auth_modules)
 
     # Remove index file from /var/www/html
     try:
@@ -383,10 +495,26 @@ def guacamole_configuration():
         print('Guacamole setup files already exists in {}'.format(path))
         return
 
-    git_command = 'git clone clone --branch master https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
+    git_command = 'git clone --branch master https://github.com/kausrini/Mini-ScienceDMZ.git {}'.format(path)
     print('Fetching the guacamole setup files from git repository')
     subprocess.check_output(['runuser', '-l', 'pi', '-c', git_command])
     subprocess.check_output(['chmod', '774', path + '/guacamole_setup_files/setup.py'])
+
+
+def restore_rules():
+    file_object = open("/etc/rc.local", "r")
+    cont = file_object.readlines()
+    cont = cont[:-1]
+    file_object.close()
+
+    write_file = open("/etc/rc.local", "w")
+    write_file.writelines([item for item in cont])
+    write_file.write("sudo /sbin/iptables-restore < /etc/iptables/rules.v4")
+    write_file.write("\n")
+    write_file.write("sudo /sbin/ip6tables-restore < /etc/iptables/rules.v6")
+    write_file.write("\n")
+    write_file.write("exit 0" + "\n")    
+    write_file.close()
 
 
 def setup_cronjobs():
@@ -396,7 +524,7 @@ def setup_cronjobs():
     cron_jobs_list = [
         '@reboot docker start sql_container\n',
         '@reboot docker start guacamole_container\n',
-        '0 * * * * python /home/pi/minidmz/sendStatus.py\n'
+        '0 */6 * * * python3 /home/pi/minidmz/log_email/send_status.py\n'
     ]
 
     # Add cronjob if the dynv6 script exists
@@ -406,27 +534,29 @@ def setup_cronjobs():
     cron_file_name = 'temp_cron'
     file_path = '/tmp/' + cron_file_name
 
-    with open(file_path, 'w') as file:
-        file.write(''.join(cron_jobs_list))
+    with open(file_path, 'w') as file_object:
+        file_object.write(''.join(cron_jobs_list))
 
     subprocess.check_output(['crontab', file_path])
     os.remove(file_path)
 
-    # Add our custom firewall ruels
-    subprocess.check_output(['/etc/firewall/iptables.sh'])
+    if os.path.isfile('/etc/firewall/iptables.sh'):
+        # Add firewall rules
+        subprocess.check_output(['/etc/firewall/iptables.sh'])
 
-    # Save IPv4 rules
-    subprocess.check_output(['bash', '-c', 'iptables-save', '>', '/etc/iptables/rules.v4'])
+    if not os.path.isfile('/etc/iptables/rules.v4'):
+        open('/etc/iptables/rules.v4', 'a').close()
+    if not os.path.isfile('/etc/iptables/rules.v6'):
+        open('/etc/iptables/rules.v6', 'a').close()
+
+        # Save IPv4 rules
+    subprocess.check_output(['su', 'root', '-c', '/sbin/iptables-save >> /etc/iptables/rules.v4'])
 
     # Save IPv6 rules
-    subprocess.check_output(['bash', '-c', 'ip6tables-save', '>', '/etc/iptables/rules.v6'])
+    subprocess.check_output(['su', 'root', '-c', '/sbin/ip6tables-save >> /etc/iptables/rules.v6'])
 
-    # These lines will make sure that our firewall rules persist on reboot
-    with open("/etc/rc.local", "a") as f:
-        f.write("sudo iptables-restore < /etc/iptables/rules.v4")
-        f.write("\n")
-        f.write("sudo ip6tables-restore < /etc/iptables/rules.v6")
-        f.write("\n")
+    # These method will make sure that our firewall rules persist on reboot
+    restore_rules()
 
 
 # Rebooting the raspberry pi
@@ -443,19 +573,26 @@ if __name__ == '__main__':
     if not settings.check_internet_connectivity():
         sys.exit(1)
     email = arguments.email
-    testing = arguments.testing
-    http = arguments.insecure
     self_signed = arguments.self
-    install_packages(http or self_signed)
+    install_packages(arguments.insecure or self_signed)
+
+    if arguments.perfsonar:
+        # Installs perfsonar testpoint on the device
+        perfinst.setup_perfsonar()
+
     isc_dhcp_server_configuration()
     docker_install()
     guacamole_configuration()
-    if not http:
+    if not arguments.insecure or arguments.saml:
         if email is None:
-            sys.stdout.write('\n\nEnter email address : ')
+            sys.stdout.write('\n\nPlease enter your email address : ')
             email = input()
         if not self_signed:
-            self_signed = certbot_tls_configuration(email, testing)
-    apache_configuration(http, self_signed, email)
+            self_signed = certbot_tls_configuration(email, arguments.testing)
+    apache_configuration(arguments.insecure, self_signed, email, arguments.saml)
+
+    if arguments.saml:
+        saml_specific_configuration(settings.DOMAIN_NAME, email)
+
     setup_cronjobs()
     clean_up_setup()

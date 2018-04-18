@@ -5,14 +5,6 @@ import os
 # Change to appropriate domain name
 DOMAIN_NAME = ''
 
-# CAS Extension parameters for Guacamole
-# Note how the url ends in cas. It MUST BE the base cas server.
-# Do not use the CAS login url (Ex : https://cas.iu.edu/cas/login or https://www.purdue.edu/apps/account/cas/login)
-CAS_AUTHORIZATION_ENDPOINT = 'https://cas.iu.edu/cas'
-# Note : if proxy server not configured. CAS_REDIRECT_URI needs to be changed
-# to http instead of https and also port 8080 need to be there
-CAS_REDIRECT_URI = 'http://{}/guacamole/'.format(DOMAIN_NAME)
-
 GUACAMOLE_VERSION = '0.9.14'
 MYSQL_CONNECTOR_VERSION = '5.1.46'
 
@@ -25,6 +17,7 @@ DIRECTORY_BASE = 'base'
 DIRECTORY_DATABASE = 'database'
 DIRECTORY_GUACAMOLE = 'guacamole'
 DIRECTORY_GENERATED_FILES = 'generated_files'
+DIRECTORY_LOG_EMAIL = 'log_email'
 
 
 # Establishes the file directory to be used
@@ -34,6 +27,7 @@ DIRECTORY_GENERATED_FILES = 'generated_files'
 def fetch_file_directories():
     base_directory = os.path.dirname(os.path.realpath(__file__))
     directories = {
+        DIRECTORY_LOG_EMAIL: base_directory + '/..' + '/log_email',
         DIRECTORY_BASE : base_directory,
         DIRECTORY_DATABASE : base_directory + '/db',
         DIRECTORY_GUACAMOLE : base_directory + '/dock',

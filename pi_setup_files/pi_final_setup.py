@@ -524,7 +524,7 @@ def setup_cronjobs():
     cron_jobs_list = [
         '@reboot docker start sql_container\n',
         '@reboot docker start guacamole_container\n',
-        '0 * * * * python /home/pi/minidmz/log_email/send_status.py\n'
+        '0 */6 * * * python3 /home/pi/minidmz/log_email/send_status.py\n'
     ]
 
     # Add cronjob if the dynv6 script exists

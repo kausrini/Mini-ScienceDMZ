@@ -50,15 +50,17 @@ The project designs, develops, and tests the deployment of a small device that f
 
 13. Ensure that Remote Desktop Protocol is enabled in the scientific instrument being connected to the raspberry pi.
 
-14. Launch the final setup script using the following command and wait for the raspberry pi to reboot.
+14. By default the script configures CAS authentication module. For this, edit pi_settings.py file and change the CAS_AUTHORIZATION_ENDPOINT to your CAS server URL. If you wish to use a SAML authentication module, please edit the saml_config.json file appropriately and run pi_final_setup.py with '-a' switch. Use `sudo /boot/pi_final_setup.py -h` further information. 
+
+15. Launch the final setup script using the following command and wait for the raspberry pi to reboot.
     ```
     sudo /boot/pi_final_setup.py -e YOUR_EMAIL_ADDRESS
     ```
     - This script will by default try to use [certbot](https://certbot.eff.org/about/) to configure HTTPS using a production grade certificate from [Let's Encrypt](https://letsencrypt.org/about/) certificate authority. If that fails, it falls back to a self-signed certificate generation to ensure an HTTPS connection between user and our minidmz setup. 
-    - We can obtain [test certificates](https://letsencrypt.org/docs/staging-environment/) from Let's Encrypt by issuing the following command. `sudo /boot/pi_final_setup.py -t -e YOUR_EMAIL_ADDRESS`
+    - The script can obtain [test certificates](https://letsencrypt.org/docs/staging-environment/) from Let's Encrypt by issuing the following command. `sudo /boot/pi_final_setup.py -t -e YOUR_EMAIL_ADDRESS`
     - We can force the script to use self-signed certificates or use HTTP configuration (**Not Recommended**) by using appropriate arguments. Use `sudo /boot/pi_final_setup.py -h` further information.
-    - By default the script configures CAS authentication module. If you wish to use a SAML authentication module, please edit the saml_config.json file appropriately and run pi_final_setup.py with '-a' switch. Use `sudo /boot/pi_final_setup.py -h` further information.
->   - Note: Let’s Encrypt CA issues short-lived certificates (90 days).The *YOUR_EMAIL_ADDRESS* is used by the CA to warn you if the certificate is about to expire or for revocation purposes. If email address used for self-signed certificate, its used in the certificate generation process. 
+    - The script can also install perfsonar by using the switch '-p'. Use `sudo /boot/pi_final_setup.py -h` further information. 
+>  - Note: Let’s Encrypt CA issues short-lived certificates (90 days).The *YOUR_EMAIL_ADDRESS* is used by the CA to warn you if the certificate is about to expire or for revocation purposes. If email address used for self-signed certificate, its used in the certificate generation process. 
  
 
 ### Guacamole Setup For Mini-ScienceDMZ

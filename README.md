@@ -57,6 +57,7 @@ The project designs, develops, and tests the deployment of a small device that f
     - This script will by default try to use [certbot](https://certbot.eff.org/about/) to configure HTTPS using a production grade certificate from [Let's Encrypt](https://letsencrypt.org/about/) certificate authority. If that fails, it falls back to a self-signed certificate generation to ensure an HTTPS connection between user and our minidmz setup. 
     - We can obtain [test certificates](https://letsencrypt.org/docs/staging-environment/) from Let's Encrypt by issuing the following command. `sudo /boot/pi_final_setup.py -t -e YOUR_EMAIL_ADDRESS`
     - We can force the script to use self-signed certificates or use HTTP configuration (**Not Recommended**) by using appropriate arguments. Use `sudo /boot/pi_final_setup.py -h` further information.
+    - By default the script configures CAS authentication module. If you wish to use a SAML authentication module, please edit the saml_config.json file appropriately and run pi_final_setup.py with '-a' switch. Use `sudo /boot/pi_final_setup.py -h` further information.
 >   - Note: Let’s Encrypt CA issues short-lived certificates (90 days).The *YOUR_EMAIL_ADDRESS* is used by the CA to warn you if the certificate is about to expire or for revocation purposes. If email address used for self-signed certificate, its used in the certificate generation process. 
  
 
@@ -74,6 +75,17 @@ The project designs, develops, and tests the deployment of a small device that f
    - Users added by the administrator persists even when the *setup.py* is launched multiple times. To completely delete all the user information and create a fresh instance, use the following command. `/home/pi/minidmz/guacamole_setup_files/setup.py -f -u USERNAME`
 
 4. The Guacamole page can be visited at https://DOMAIN_NAME/guacamole/ if configured with HTTPS and at http://DOMAIN_NAME/guacamole/ if configured as HTTP.
+
+### Log Emails For Mini-ScienceDMZ
+
+1. Edit **/home/pi/minidmz/log_email/email_config.json** file to configure email parameters.
+
+2. The username and password fields are required for authentication with the mail server. smtp_server_name field is the mail server. The user can specify multiple receiver email ids by comma seperated values as it is a json array. 
+
+3. During the pi setup log_email will be added to the crontab with a frequency of every 6 hours.
+
+Note that this module currently sends only the guacamole logs and syslog. It sends only the difference in logs since the last email. 
+
 
 ## Important Points of Consideration
 
